@@ -44,18 +44,30 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        if (!Python.isStarted()) {
-            Python.start(new AndroidPlatform(this));
-        }
-
         setContentView(buildUi());
-
         statusView.setText("Mevzuat motoru yükleniyor...");
+
+        // Python.start() dahil TÜM baslangic islemleri arka plan
+        // thread'inde: bir istisna olursa uygulama SESSIZCE cokmek
+        // yerine ekranda hatayi gostersin (2026-08-19: bir tablette
+        // ABI uyumsuzlugu nedeniyle acilista sessiz cokme yasandi,
+        // bu hatayi gorunur kilmak icin eklendi).
         new Thread(() -> {
-            Python py = Python.getInstance();
-            PyObject assistantModule = py.getModule("mim_mevzuat.assistant");
-            assistant = assistantModule.callAttr("MevzuatAssistant");
-            runOnUiThread(() -> statusView.setText("Hazır — internet gerekmeden çalışır."));
+            try {
+                if (!Python.isStarted()) {
+                    Python.start(new AndroidPlatform(this));
+                }
+                Python py = Python.getInstance();
+                PyObject assistantModule = py.getModule("mim_mevzuat.assistant");
+                assistant = assistantModule.callAttr("MevzuatAssistant");
+                runOnUiThread(() -> statusView.setText("Hazır — internet gerekmeden çalışır."));
+            } catch (Throwable t) {
+                String msg = "Motor başlatılamadı: " + t;
+                runOnUiThread(() -> {
+                    statusView.setText("HATA — bkz. aşağı");
+                    answerView.setText(msg);
+                });
+            }
         }).start();
     }
 

@@ -14,10 +14,14 @@ android {
         versionName "1.0.0"
 
         ndk {
-            // APK boyutunu ve derleme suresini makul tutmak icin
-            // yalnizca gercek telefonlarin buyuk cogunlugunu kapsayan
-            // iki ABI hedeflenir.
-            abiFilters "armeabi-v7a", "arm64-v8a"
+            // TÜM ana ABI'ler dahil edilir. Yalnızca ARM (armeabi-v7a/
+            // arm64-v8a) hedeflenmişti, ama BİRÇOK ucuz/eski Android
+            // TABLET Intel x86/x86_64 işlemci kullanıyor - bu durumda
+            // Chaquopy'nin native kütüphaneleri (libpython vb.) APK'da
+            // hiç bulunmadığından uygulama açılışta anında çöküyordu
+            // (2026-08-19, kullanıcı tabletinde doğrulandı). APK biraz
+            // büyür ama gerçek cihaz uyumluluğu önceliklidir.
+            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
         }
 
         // mim_mevzuat cekirdek motoru (models/citation_enforcer/retrieval/

@@ -237,12 +237,31 @@ def api_trigger_update_sync():
     return res
 
 
+@app.get("/manifest.json")
+def api_manifest():
+    """Mobil cihazlar için PWA Manifest dosyası."""
+    return {
+        "name": "MİM MEVZUAT — Mimari Mevzuat Asistanı",
+        "short_name": "MİM Mevzuat",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#0B0F19",
+        "theme_color": "#38BDF8",
+        "orientation": "portrait"
+    }
+
+
 # Web Arayüzü HTML Sayfası (Single Page App)
 INDEX_HTML = """<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0B0F19">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MİM MEVZUAT">
+    <link rel="manifest" href="/manifest.json">
     <title>MİM MEVZUAT — Mimari Mevzuat & Yorumlama Asistanı</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

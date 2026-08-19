@@ -208,6 +208,22 @@ def api_get_documents():
     return {"documents": docs}
 
 
+@app.get("/api/jurisdictions")
+def api_get_jurisdictions():
+    """Türkiye'nin 81 ili ve 973 ilçesini döner."""
+    from ..jurisdictions import ALL_81_PROVINCES
+    result = []
+    for prov_key, p in ALL_81_PROVINCES.items():
+        result.append({
+            "plate_code": p.plate_code,
+            "name": p.name,
+            "code": p.code,
+            "is_metropolitan": p.is_metropolitan,
+            "districts": [{"name": d.name, "code": d.code} for d in p.districts]
+        })
+    return {"provinces": sorted(result, key=lambda x: x["plate_code"])}
+
+
 @app.get("/api/updates/status")
 def api_update_status():
     """Otomatik güncelleme motorunun canlı durumunu döner."""

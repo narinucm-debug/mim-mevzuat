@@ -31,3 +31,26 @@ def test_general_qa_intent():
 
     assert intent.intent == "QA"
     assert "emsal" in intent.detected_topics
+
+
+def test_extract_various_nationwide_districts():
+    # Konya Selçuklu
+    intent1 = parse_user_intent("Selçuklu'da 50 dairelik site yapıyoruz")
+    assert intent1.entities.jurisdiction == "TR.Konya.Selcuklu"
+    assert intent1.entities.unit_count == 50
+
+    # Muğla Bodrum
+    intent2 = parse_user_intent("Bodrum Yalıkavak'ta 8 villalık otopark hesabı")
+    assert intent2.entities.jurisdiction == "TR.Mugla.Bodrum"
+
+    # Trabzon Akçaabat
+    intent3 = parse_user_intent("Akçaabat sahilinde 2000 m2 arsa emsal 1.20")
+    assert intent3.entities.jurisdiction == "TR.Trabzon.Akcaabat"
+    assert intent3.entities.parcel_area == 2000.0
+    assert intent3.entities.kaks == 1.20
+
+    # Bursa Nilüfer
+    intent4 = parse_user_intent("Nilüfer Özlüce 30 daire")
+    assert intent4.entities.jurisdiction == "TR.Bursa.Nilufer"
+    assert intent4.entities.unit_count == 30
+

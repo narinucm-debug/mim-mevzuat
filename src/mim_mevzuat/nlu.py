@@ -45,23 +45,7 @@ class ParsedUserIntent:
     confidence: float = 1.0
 
 
-# İlçe / İl eşleştirme tablosu
-_JURISDICTION_MAP = {
-    "çankaya": "TR.Ankara.Cankaya",
-    "cankaya": "TR.Ankara.Cankaya",
-    "mamak": "TR.Ankara.Mamak",
-    "gölbaşı": "TR.Ankara.Golbasi",
-    "golbasi": "TR.Ankara.Golbasi",
-    "etimesgut": "TR.Ankara.Etimesgut",
-    "altındağ": "TR.Ankara.Altindag",
-    "altindag": "TR.Ankara.Altindag",
-    "pursaklar": "TR.Ankara.Pursaklar",
-    "ankara": "TR.Ankara",
-    "finike": "TR.Antalya.Finike",
-    "antalya": "TR.Antalya",
-    "istanbul": "TR.Istanbul",
-    "izmir": "TR.Izmir",
-}
+from .jurisdictions import resolve_jurisdiction
 
 
 def _parse_float(val_str: str) -> float:
@@ -74,12 +58,12 @@ def extract_entities_from_text(text: str) -> ExtractedEntities:
     low = text.lower()
     entities = ExtractedEntities()
 
-    # 1. Konum / Jurisdiction
-    for key, jur in _JURISDICTION_MAP.items():
-        if re.search(rf"\b{key}\b", low):
-            entities.jurisdiction = jur
-            entities.district = key.title()
-            break
+    # 1. Konum / Jurisdiction (81 İl ve 973 İlçe Hiyerarşik Çözümleme)
+    jur_code, prov, dist = resolve_jurisdiction(text)
+    if jur_code != "TR":
+        entities.jurisdiction = jur_code
+        entities.province = prov
+        entities.district = dist or prov
 
     # 2. Daire / Bağımsız Bölüm Sayısı
     # Örnek: "40 dairelik", "80 daire", "25 bağımsız bölüm", "30 konut"

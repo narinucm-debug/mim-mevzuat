@@ -1,0 +1,100 @@
+MİM MEVZUAT — KAYNAK POLİTİKASI
+=================================
+
+----------------------------------------------------------------
+1. KAYNAK GÜVEN HİYERARŞİSİ (öncelik sırasıyla)
+----------------------------------------------------------------
+  1. Resmî Gazete (resmigazete.gov.tr) — birincil yayın kaydı, DEĞİŞİKLİK
+     metinlerinin ve yürürlük tarihlerinin kanıtı
+  2. Mevzuat Bilgi Sistemi (mevzuat.gov.tr, Adalet Bakanlığı) — KONSOLİDE
+     ("tek metin") güncel hali; ingestion için BİRİNCİL KAYNAK
+  3. Bakanlıkların resmi siteleri (csb.gov.tr, mpgm.csb.gov.tr,
+     meslekihizmetler.csb.gov.tr vb.) — kılavuz, ek açıklama, duyuru
+  4. Belediye / büyükşehir / ilgili idarenin resmi siteleri — yerel
+     plan notu ve uygulama esasları
+  5. Resmî plan notları (idarenin onayladığı plan paftası/notu)
+  6. Resmî teknik kılavuzlar (bakanlık yayını kılavuzlar)
+  7. Kullanıcı tarafından yüklenen doğrulanmış belgeler — yalnızca
+     kullanıcı projesine özgü bağlamda, genel mevzuat iddiası için
+     KULLANILMAZ
+
+Blog, forum, haber sitesi, "mevzuat özet" siteleri (mevzuattakip.com.tr,
+alomaliye.com, imarx.com.tr vb.) yalnızca "haber/ipucu" sinyali olarak
+kullanılabilir — asla authoritative source olarak sisteme kaydedilmez.
+Bu tür siteler yalnızca "resmi kaynakta böyle bir değişiklik var mı
+kontrol et" tetikleyicisi olarak Update Engine'e sinyal verebilir.
+
+----------------------------------------------------------------
+2. NEDEN mevzuat.gov.tr BİRİNCİL INGESTION KAYNAĞI
+----------------------------------------------------------------
+Bu turdaki araştırma şunu doğruladı: Resmî Gazete yalnızca o günkü
+DEĞİŞİKLİK metnini yayınlar (ör. "X maddesi şu şekilde değiştirilmiştir").
+mevzuat.gov.tr ise her yönetmeliğin tüm değişikliklerle güncellenmiş
+TEK, KONSOLİDE metnini tutar. Bu, versiyonlama mimarisi için kritiktir:
+
+  - Ingestion: her yönetmeliğin GÜNCEL halini mevzuat.gov.tr'den çek.
+  - Denetim/kanıt: hangi maddenin ne zaman, hangi Resmî Gazete
+    sayısıyla değiştiğini resmigazete.gov.tr kayıtlarıyla çapraz
+    doğrula (effectiveFrom / lastAmendedDate alanları için).
+  - Asla resmigazete.gov.tr'deki TEK BİR değişiklik ilanını "güncel
+    tam metin" gibi işleme — yalnızca konsolide metinle birlikte
+    kullan.
+
+----------------------------------------------------------------
+3. ÜÇÜNCÜ TARAF TEKNİK ARAÇLAR — DEĞERLENDİRME NOTU
+----------------------------------------------------------------
+Araştırmada bulunan "mevzuat-mcp" (github.com/saidsurucu/mevzuat-mcp,
+PyPI: mevzuat-mcp) adlı açık kaynak proje, mevzuat.gov.tr ve
+bedesten.adalet.gov.tr üzerinden programatik arama/erişim sağlayan bir
+MCP sunucusu. Bu bir AUTHORITATIVE KAYNAK DEĞİLDİR — yalnızca teknik
+bir erişim katmanıdır (mevzuat.gov.tr'nin kendisi hâlâ otorite).
+Faz 1 ingestion hızını artırmak için değerlendirilebilir, ancak:
+  - Kullanılmadan önce lisansı ve güncellik garantisi incelenmeli.
+  - Üzerinden çekilen her belge, MİM MEVZUAT içine girmeden önce yine
+    de mevzuat.gov.tr'deki orijinaliyle otomatik/hash tabanlı
+    doğrulanmalı (üçüncü taraf araca "körü körüne" güvenilmez).
+
+----------------------------------------------------------------
+4. GÜVEN SEVİYESİ TANIMLARI
+----------------------------------------------------------------
+  HIGH:
+    Resmi kaynakta soruya doğrudan karşılık veren AÇIK hüküm var;
+    tek madde/fıkra yeterli kanıt.
+
+  MEDIUM:
+    Birden fazla hükmün birlikte yorumlanması gerekiyor (ör. genel
+    yönetmelik + yerel plan notu birlikte okunmalı).
+
+  LOW:
+    Belge yetersiz veya uygulama belirsiz; retrieval sonucu var ama
+    soruyu tam karşılamıyor.
+
+  NEEDS AUTHORITY REVIEW:
+    İlgili belediye/idarenin somut yorumu veya proje özelinde resmi
+    doğrulama gerekli (özellikle yerel idare takdir yetkisi olan
+    konularda).
+
+Kural: LLM kendi güven seviyesini YÜKSEK göstermeye teşvik edilmeyecek
+şekilde prompt'lanır; ayrıca güven seviyesi LLM'in kendi beyanına değil,
+retrieval sonucunun sayısı/niteliğine bağlı DETERMİNİSTİK bir kurala
+göre de çapraz kontrol edilir (ör. tek kaynak + tek jurisdiction eşleşen
+madde = HIGH adayı; çoklu/çelişen kaynak = otomatik en fazla MEDIUM).
+
+----------------------------------------------------------------
+5. HALLUCINATION DEFENSE — PAZARLIKSIZ KURALLAR
+----------------------------------------------------------------
+   1. Retrieved source yoksa normatif cevap yok.
+   2. Madde numarası source metadata'dan gelmeli (LLM üretemez).
+   3. URL uydurulamaz (yalnızca sourceUrl alanından kopyalanır).
+   4. Tarih uydurulamaz (yalnızca metadata alanlarından).
+   5. Belediye kuralı uydurulamaz.
+   6. Eski hüküm güncelmiş gibi kullanılamaz (validityStatus kontrolü).
+   7. Çelişen kaynak varsa kullanıcıya İKİSİ DE gösterilir.
+   8. Kaynak yetersizse bu açıkça söylenir (sabit red mesajı).
+   9. Model hafızası authoritative değildir.
+  10. Hesap sonucu source trace olmadan üretilemez (Rule Engine
+      zorunluluğu).
+
+Standart RED mesajı (kaynak bulunamadığında, birebir kullanılacak):
+  "Yüklenen/güncel mevzuat setinde bu soruyu güvenilir biçimde
+   cevaplayacak yeterli dayanak bulunamadı."

@@ -1,0 +1,118 @@
+MİM MEVZUAT — UPDATE ENGINE TASARIMI
+=======================================
+
+ÖNEMLİ TASARIM İLKESİ: Mevzuat güncellemesi sistemin kendi işidir —
+kullanıcı ya da geliştirici elle "dosyaları güncelle" demek zorunda
+kalmamalı. Update Engine, izlenen her resmi kaynağı OTOMATİK olarak
+periyodik kontrol eden, değişiklik bulduğunda diff üreten ve bunu bir
+onay kuyruğuna düşüren bağımsız bir arka plan bileşenidir. Cevap
+motoru ve Rule Engine, Update Engine onaylamadan YENİ içeriği asla
+production'a almaz.
+
+----------------------------------------------------------------
+1. İZLENEN KAYNAK KAYDI (her kaynak için tutulur)
+----------------------------------------------------------------
+  sourceId
+  documentId (ilişkili doküman)
+  sourceUrl
+  checkMethod         (ör. "consolidated-text-hash", "rg-issue-poll")
+  checkFrequency       (ör. günlük, haftalık — kaynağın değişim hızına göre)
+  lastCheckedAt
+  lastChangedAt
+  currentVersion
+  currentContentHash
+  status               (OK / CHECK_FAILED / CHANGE_DETECTED / UNDER_REVIEW)
+
+----------------------------------------------------------------
+2. AKIŞ
+----------------------------------------------------------------
+  [Zamanlayıcı] --tetikler--> [Fetch] --> [Hash/İçerik Karşılaştırma]
+        |
+        v (değişiklik YOKSA)                 (değişiklik VARSA)
+  lastCheckedAt güncellenir              [Diff Üretimi: OLD vs NEW]
+                                                |
+                                                v
+                                     [Review Queue'ya eklenir]
+                                     status = UNDER_REVIEW
+                                                |
+                                                v
+                                  [İnsan onayı: kabul / red / düzeltme]
+                                                |
+                          onay ------------------+------------ red
+                          v                                    v
+              [Yeni Document/Article versiyonu               [Log +
+               oluşturulur, effectiveFrom/                    kaynağa geri
+               lastAmendedDate set edilir,                    dönülür,
+               eski versiyon supersededBy ile                 not düşülür]
+               bağlanır]
+                          |
+                          v
+              [Rule Pack etki analizi: bu değişiklik
+               hangi rule pack'leri/madde referanslarını
+               etkiliyor? -> ayrı review adımı]
+                          |
+                          v
+              [Kullanıcıya bildirim: "Otopark Yönetmeliği
+               güncellendi" tarzı, opsiyonel]
+
+----------------------------------------------------------------
+3. NEDEN OTOMATİK PROMOTE YOK
+----------------------------------------------------------------
+Mevzuat metni bazen ince nüanslar taşır (istisna, geçiş hükmü, yürürlük
+tarihi farkı). Otomatik olarak yeni metni "doğru" kabul edip production
+rule pack'e almak, HALLUCINATION_DEFENSE ilkeleriyle çelişir (eski
+hükmün güncelmiş gibi gösterilmesinin TERSİ bir hata: yanlış/eksik
+anlaşılmış yeni hükmün hemen production'a girmesi). Bu yüzden:
+  - Diff bulunur bulunmaz kullanıcıya/admin'e YALNIZCA "değişiklik var"
+    bildirimi gider.
+  - Yeni içerik, review onaylanana kadar corpus'ta "pending" durumda
+    kalır ve retrieval'da kullanılmaz.
+  - Review sonrası, versiyon zinciri (supersedes/supersededBy) ile
+    resmi olarak devreye alınır.
+
+----------------------------------------------------------------
+4. KAYNAK TÜRÜNE GÖRE KONTROL STRATEJİSİ
+----------------------------------------------------------------
+  mevzuat.gov.tr (konsolide metin):
+    - Periyodik hash karşılaştırma (ör. günlük). Hash değiştiyse tam
+      metin yeniden çekilir, madde bazlı diff üretilir.
+
+  resmigazete.gov.tr:
+    - İzlenen yönetmelik adları için yeni sayı taraması (ör. günlük).
+      Yeni bir "değişiklik yapılmasına dair yönetmelik" tespit
+      edilirse, bu doğrudan mevzuat.gov.tr'deki konsolide metnin
+      YAKINDA güncelleneceğinin erken sinyali olarak kullanılır
+      (bildirim + izlemeyi sıklaştırma).
+
+  Belediye/idare siteleri:
+    - Yapısı sitesine göre değişir, standart bir hash kontrolü her
+      zaman yeterli olmayabilir; Faz 3 kapsamında idare bazlı özel
+      kontrol mantığı gerekebilir. Faz 1/2'de bu kaynaklar için
+      MANUEL kontrol/güncelleme süreci kabul edilebilir (kapsam
+      küçük tutulduğu sürece).
+
+  Blog/haber siteleri (yalnızca sinyal amaçlı, bkz. SOURCE_POLICY.txt):
+    - Opsiyonel: bu tür kaynaklarda geçen "X yönetmeliği değişti"
+      haberleri, ilgili resmi kaynağın kontrol sıklığını GEÇİCİ olarak
+      artırmak için tetikleyici olarak kullanılabilir, ama ASLA
+      doğrudan içerik kaynağı olarak alınmaz.
+
+----------------------------------------------------------------
+5. VERSİYON GEÇMİŞİ ÜZERİNDEN TRACEABILITY
+----------------------------------------------------------------
+Her cevap SOURCE VERSION taşıdığı için (bkz. DATA_MODEL.txt), bir
+mevzuat değişikliği sonrası:
+  - Eski cevaplar hangi versiyona dayandığı görülebilir.
+  - Kullanıcı "bu cevap hâlâ geçerli mi?" diye sorduğunda, sistem
+    ilgili maddenin effectiveTo alanına bakarak "Bu cevap X
+    versiyonuna dayanıyordu, Y tarihinde değişti, güncel değil"
+    diyebilir.
+
+----------------------------------------------------------------
+6. FAZ SIRALAMASI
+----------------------------------------------------------------
+  Faz 1: Update Engine YOK — ingestion tek seferlik/manuel, ama veri
+         modeli (version, effectiveFrom/To, supersedes) baştan bu
+         mimariye göre kurulur ki sonradan eklemek şema değişikliği
+         gerektirmesin.
+  Faz 3: Update Engine otomasyonu devreye girer (bkz. PLAN.txt, 3.1-3.2).

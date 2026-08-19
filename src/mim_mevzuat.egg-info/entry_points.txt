@@ -1,0 +1,2 @@
+[console_scripts]
+mim-mevzuat = mim_mevzuat.cli:main

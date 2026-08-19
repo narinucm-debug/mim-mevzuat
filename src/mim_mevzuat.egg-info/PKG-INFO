@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: mim-mevzuat
+Version: 0.0.1
+Summary: Türkiye mimari mevzuat asistanı - Faz 1 çekirdek prototip
+Requires-Python: >=3.11
+Requires-Dist: requests>=2.31
+Requires-Dist: certifi>=2024.2.2
+Requires-Dist: pymupdf>=1.24

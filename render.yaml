@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: mim-mevzuat
+    env: python
+    region: frankfurt
+    plan: free
+    buildCommand: "pip install -r requirements.txt && pip install fastapi uvicorn httpx && pip install -e ."
+    startCommand: "uvicorn mim_mevzuat.web.app:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0

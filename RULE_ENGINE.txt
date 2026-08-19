@@ -1,0 +1,97 @@
+MİM MEVZUAT — HESAP (RULE ENGINE) TASARIMI
+=============================================
+
+----------------------------------------------------------------
+1. TEMEL İLKE
+----------------------------------------------------------------
+LLM formülleri HER SEFERİNDE ÜRETMEZ. Hesaplar, doğrulanmış mevzuat
+hükmünden insan tarafından çıkarılmış, VERSİYONLANMIŞ "rule pack"
+tanımlarına dayanır. LLM'in bu katmandaki rolü yalnızca: (a) hangi
+rule pack'in uygulanacağını seçmek, (b) kullanıcıdan/projeden gelen
+girdileri rule pack'in beklediği alanlara eşlemek, (c) sonucu doğal
+dille açıklamak. Formülü LLM icat etmez.
+
+----------------------------------------------------------------
+2. RULE PACK ŞEMASI
+----------------------------------------------------------------
+  ruleId
+  jurisdiction
+  version
+  sourceDocument           (documentId)
+  sourceArticle            (madde referansı)
+  inputs                   [{ name, type, required, description }]
+  formula                  (deterministik ifade veya adım listesi —
+                            kod olarak, insan tarafından yazılıp
+                            review edilmiş)
+  conditions                (formülün geçerli olduğu koşullar)
+  exceptions                 (istisna durumları, varsa ayrı alt-rule
+                              veya işaretleme)
+  effectiveFrom / effectiveTo
+
+Rule pack'ler ayrı bir "onaylı" depoda tutulur (corpus'tan farklı —
+corpus ham/parse edilmiş mevzuat metni, rule pack ise bu metinden
+İNSAN tarafından çıkarılmış ve gözden geçirilmiş deterministik
+mantıktır). Yeni bir mevzuat versiyonu geldiğinde ilgili rule pack'ler
+otomatik güncellenmez — Update Engine'in "Rule Pack etki analizi"
+adımından geçer (bkz. UPDATE_ENGINE.txt bölüm 2).
+
+----------------------------------------------------------------
+3. GİRDİ TOPLAMA — TAHMİN YOK
+----------------------------------------------------------------
+Bir hesap için gerekli girdi eksikse (ör. "bu projede otopark yeterli
+mi?" ama bağımsız bölüm sayısı bilinmiyor), sistem:
+  1. Önce aktif Project Mode verisinde bu alanı arar.
+  2. Yoksa kullanıcıdan açıkça İSTER (liste halinde eksik alanlar).
+  3. Kullanıcı vermeden HESAP YAPILMAZ, TAHMİN edilmez.
+
+Otopark örneğinde tipik gerekli girdiler:
+  - kullanım türü (konut / ticari / karma)
+  - bağımsız bölüm sayısı
+  - alanlar (varsa net/brüt kullanım alanları)
+  - mevcut otopark sayısı
+  - engelli otopark sayısı
+  - EV otopark sayısı
+  - yerel idare (jurisdiction çözümlemesi için)
+
+----------------------------------------------------------------
+4. CALCULATION TRACE (her hesabın ZORUNLU çıktısı)
+----------------------------------------------------------------
+  INPUTS      kullanıcı/projeden gelen değerler
+  RULE        uygulanan ruleId + version
+  METHOD      hangi formül/adımlar uygulandı
+  RESULT      sonuç (ör. Required Parking: X, Existing: Y, Fark: Z)
+  SOURCE      sourceDocument + sourceArticle
+  VERSION     rule pack version + kaynak mevzuat version'ı
+  CONFIDENCE  (rule pack'in koşulları tam örtüşüyor mu, istisna
+              durumu var mı -> HIGH/MEDIUM/LOW/NEEDS_AUTHORITY_REVIEW)
+
+Trace olmadan hesap sonucu kullanıcıya gösterilmez (bkz.
+SOURCE_POLICY.txt madde 10, hallucination defense).
+
+----------------------------------------------------------------
+5. ÖRNEK AKIŞ — "Bu projede otopark yeterli mi?"
+----------------------------------------------------------------
+  1. Sistem gerekli girdileri belirler (bölüm 3 listesi).
+  2. Eksik olanları kullanıcıya sorar (tahmin YOK).
+  3. jurisdiction çözümlenir (proje ili/ilçesi -> genel + yerel rule
+     pack adayları).
+  4. Uygun rule pack seçilir (yerel bir rule pack varsa GENEL + YEREL
+     birlikte değerlendirilir, çakışma varsa her ikisi de gösterilir —
+     bkz. SOURCE_POLICY.txt güven seviyesi kuralları).
+  5. Formül uygulanır, Calculation Trace üretilir.
+  6. Kullanıcıya:
+       Required Parking: X
+       Existing Parking: Y
+       Difference: Z
+       Rule: ...
+       Source: ...
+       Confidence: ...
+     formatında sunulur.
+
+----------------------------------------------------------------
+6. FAZ 1 KAPSAMI
+----------------------------------------------------------------
+Faz 1'de Rule Engine İMPLEMENT EDİLMEZ (bkz. PLAN.txt). Bu doküman,
+Faz 2'de ilk rule pack'lerin (otopark, emsal/TAKS-KAKS) hangi şema ve
+disiplinle yazılacağını önceden sabitlemek içindir — böylece Faz 1'in
+veri modeli (DATA_MODEL.txt) bu ihtiyaçla uyumsuz kurulmaz.

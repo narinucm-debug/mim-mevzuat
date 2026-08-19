@@ -1,0 +1,181 @@
+MİM MEVZUAT — MİMARİ TASARIM
+==============================
+
+----------------------------------------------------------------
+1. KATMANLAR (YÜKSEK SEVİYE)
+----------------------------------------------------------------
+
+  [Kaynak Alımı]        Resmi siteler, PDF/HTML/DOCX, kullanıcı belgesi
+        |
+        v
+  [Ingestion Pipeline]  Extract -> Structure Parse -> Chunk -> Metadata
+        |
+        v
+  [Corpus Store]         Document + Article + Version (SQL, yerel)
+        |
+        v
+  [Index Layer]          BM25 (FTS5) + Embedding (vektör) + Metadata filtre
+        |
+        v
+  [Retrieval Orchestrator]  Query understanding -> hybrid search -> rerank
+        |
+        v
+  [Citation Enforcer]    Retrieval kanıtı yoksa cevap üretimini durdurur
+        |
+        v
+  [Answer Composer / LLM Provider Abstraction]  Yalnızca retrieve edilen
+                          kanıt üzerinden doğal dil cevabı + format
+        |
+        v
+  [Rule Engine]           Versioned rule pack'lerden deterministik hesap
+        |
+        v
+  [Project Context Store] Proje verisi (Emsal, TAKS, birim sayısı, vb.)
+        |
+        v
+  [UI]                    Chat + Project Mode + Kaynaklar paneli
+
+  [Update Engine]         Yan tarafta çalışan, kaynak değişikliği izleyen
+                          bağımsız servis (crawler + diff + review queue)
+
+  [Future: BIM API]       Archicad/Revit pluginlerinin project data
+                          gönderip "Project Check" sonucu aldığı arayüz
+                          (sözleşme şimdiden tanımlanır, implement edilmez)
+
+----------------------------------------------------------------
+2. NEDEN BU KATMANLAMA
+----------------------------------------------------------------
+Citation Enforcer, Answer Composer'dan AYRI ve ondan ÖNCE gelen bağımsız
+bir kod katmanı olarak tasarlanmalı. Sebep: "LLM'e prompt ile kaynaksız
+cevap verme" demek yeterli güvenlik değildir — modelin prompt'u ihlal
+etmesi (hallucination) her zaman mümkündür. Bu yüzden:
+
+  - Retrieval sonucu BOŞSA -> Answer Composer hiç çağrılmaz, sabit
+    "yeterli dayanak bulunamadı" mesajı döner.
+  - Cevap üretildikten SONRA, cevaptaki her atıf (madde no, belge adı,
+    URL) mekanik olarak retrieved-context içinde var mı diye kontrol
+    edilir (post-hoc citation validation). Eşleşmeyen atıf varsa cevap
+    kullanıcıya gösterilmeden reddedilir/düzeltilir.
+
+Bu iki kontrol (pre-generation gate + post-generation validation)
+projenin en kritik güvenlik bileşenidir; TEST_STRATEGY.txt'deki
+hallucination testleri doğrudan bunları hedefler.
+
+----------------------------------------------------------------
+3. ÖNERİLEN TEKNOLOJİ YIĞINI (Faz 1)
+----------------------------------------------------------------
+Gerekçe: local-first, tek geliştirici/küçük ekip, hızlı iterasyon,
+Türkçe metin işleme ve PDF/OCR ekosisteminin olgunluğu.
+
+  Backend dili:      Python 3.11+
+                      (PDF/OCR/NLP kütüphane olgunluğu; FastAPI ile
+                      hızlı API; Node/TS alternatif olarak da uygundur,
+                      ama Python'ın metin-ağırlıklı ingestion işleri
+                      için ekosistemi daha güçlü)
+  API çatısı:        FastAPI
+  Yapısal veri:      SQLite (Faz 1) -> Postgres'e taşınabilir (Faz 3+,
+                      çok kullanıcı/cloud ihtiyacı doğarsa)
+  Tam metin arama:   SQLite FTS5 (BM25) — ek servis kurulumu gerektirmez
+  Vektör arama:      sqlite-vec veya LanceDB (yerel, embedded, dosya
+                      tabanlı — ayrı bir vektör DB sunucusu gerekmez)
+  Embedding modeli:  Çok dilli, Türkçe destekli açık model
+                      (ör. BAAI/bge-m3 veya intfloat/multilingual-e5) —
+                      yerel çalıştırılabilir, veri dışarı çıkmaz
+  PDF çıkarımı:      PyMuPDF (fitz) / pdfplumber — native text layer;
+                      OCR yalnızca taranmış belgeler için (Tesseract
+                      veya benzeri), varsayılan olarak KAPALI
+  LLM erişimi:        Sağlayıcı-agnostik arayüz (bkz. bölüm 6)
+  UI (Faz 1):        Basit yerel web arayüzü (FastAPI + sunucu-render
+                      şablon veya hafif bir SPA) — native masaüstü/mobil
+                      YOK. Amaç: çekirdeği kanıtlamak, UI'ye yatırım
+                      sonraki fazda.
+  Sürüm kontrol:     Git (yerel repo, bu turda başlatıldı)
+
+Bu yığın kasıtlı olarak "ağır" değildir. Kubernetes, mikroservis,
+mesaj kuyruğu vb. bu ölçekte GEREKSİZDİR ve eklenmemelidir.
+
+----------------------------------------------------------------
+4. PLATFORM STRATEJİSİ
+----------------------------------------------------------------
+Hedef nihai: Windows, macOS, iOS/iPadOS, Android, Web.
+Faz 1 kararı: yalnızca yerel web arayüzü (tarayıcıda çalışan, tek
+makinede barındırılan). Gerekçe:
+  - Çekirdek (ingestion/search/RAG/citation/rule engine/project
+    context) platform bağımsızdır; UI katmanı buna göre kolayca
+    genişletilebilir.
+  - Cross-platform native UI yatırımı, çekirdek doğrulanmadan yapılırsa
+    israf riski taşır (kullanıcının kendi ilkesiyle uyumlu: "Kod miktarı
+    başarı metriği değildir").
+  - Web arayüzü aynı zamanda gelecekte masaüstü (Electron/Tauri) veya
+    mobil (aynı API'yi tüketen native uygulama) için doğrudan temel
+    oluşturur.
+
+----------------------------------------------------------------
+5. LOCAL-FIRST vs CLOUD
+----------------------------------------------------------------
+  Yerel tutulacaklar:
+    - Mevzuat corpus'u (ham + parse edilmiş metin)
+    - FTS5 index
+    - Embedding index
+    - Proje verileri (Project Mode)
+    - Kullanıcı yüklediği belgeler
+
+  Ağ/bulut gerektiren:
+    - LLM çağrıları (sağlayıcıya göre değişir; yerel model seçilirse
+      bu bile opsiyonel hale gelir — bkz. bölüm 6)
+    - Güncel mevzuat kontrolü (Update Engine'in resmi siteleri taraması)
+
+  Bu ayrım şu faydayı sağlar: kullanıcı offline modda bile ZATEN
+  INGEST EDİLMİŞ mevzuat üzerinde arama/hesap yapabilir; yalnızca
+  "güncel mi?" kontrolü ve LLM'in doğal dil üretimi ağ ister.
+
+----------------------------------------------------------------
+6. LLM PROVIDER ABSTRACTION
+----------------------------------------------------------------
+Tek bir sağlayıcıya kilitlenmeme zorunlu tasarım kuralı. Arayüz:
+
+  interface LlmProvider:
+      understand_query(nl_query, context) -> StructuredQuery
+      compose_answer(structured_query, retrieved_evidence) -> DraftAnswer
+      # NOT: compose_answer yalnızca retrieved_evidence içeriğini
+      # kullanabilir; kendi "bilgisini" enjekte edemez (bu kural
+      # prompt seviyesinde VE post-hoc validation ile zorlanır)
+
+  Sağlayıcı implementasyonları: Claude, OpenAI, Gemini, Ollama/local.
+  Faz 1: tek sağlayıcı (öneri: Claude, çünkü uzun bağlam + citation
+  takibi güçlü) ile başla, ama arayüzü genel tut. Sağlayıcı değişimi
+  konfigürasyon değişikliği olmalı, kod değişikliği olmamalı.
+
+  LLM'in sistemdeki rolü KESİNLİKLE şunlarla sınırlı:
+    - query understanding (doğal dil sorusunu yapılandırılmış filtreye
+      çevirme: jurisdiction, topic, sayısal parametreler)
+    - retrieval orkestrasyon (hangi ek aramalar gerekebilir)
+    - retrieved evidence üzerinde reasoning
+    - doğal dil cevap formatlama
+  LLM bir mevzuat veritabanı DEĞİLDİR ve öyle kullanılmayacaktır.
+
+----------------------------------------------------------------
+7. UI KONSEPTİ (Faz 1 minimal, Faz 2+ genişler)
+----------------------------------------------------------------
+Üst çubuk:  [Aktif Proje] [Aktif İdare Profili] [Mevzuat son güncelleme]
+Orta:       Büyük soru kutusu — "Mevzuata bir şey sor..."
+            Hızlı eylemler: Emsal | Otopark | Yangın | Sığınak |
+            Erişilebilirlik | Alan | Plan Notları | Su Deposu
+Yan panel:  Kaynaklar | Projeler | Hesaplar | Güncellemeler | Favoriler
+Cevap kartı: KISA CEVAP / DAYANAK / HESAP / YEREL DURUM / GÜVEN
+             SEVİYESİ / SON KONTROL / KAYNAK — tıklanabilir citation'lar
+             ilgili madde/belgeyi açar.
+
+----------------------------------------------------------------
+8. GELECEK: BIM ENTEGRASYON SÖZLEŞMESİ (yalnızca taslak)
+----------------------------------------------------------------
+  POST /api/v1/project-check
+  Request:  { zones[], areas[], parking_spaces[], site{}, storeys[],
+              building_metadata{}, jurisdiction }
+  Response: { checks: [ { rule_id, status, result, source, version,
+              confidence, trace } ], overall_confidence, disclaimer }
+
+  Bu uç nokta Faz 1/2'de implement EDİLMEZ. Yalnızca Rule Engine ve
+  Project Mode veri modelleriyle uyumlu olacak şekilde sözleşme
+  şimdiden not edilir ki ileride Archicad/Revit plugin'i bu modele
+  kolayca bağlanabilsin.

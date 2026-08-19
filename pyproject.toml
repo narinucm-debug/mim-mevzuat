@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mim-mevzuat"
+version = "0.0.1"
+description = "Türkiye mimari mevzuat asistanı - Faz 1 çekirdek prototip"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31",
+    "certifi>=2024.2.2",
+    "pymupdf>=1.24",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.28.0",
+]
+
+[project.scripts]
+mim-mevzuat = "mim_mevzuat.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-m 'not network'"
+markers = [
+    "network: gerçek ağ erişimi gerektiren testler (varsayılan koşuda atlanır)",
+]

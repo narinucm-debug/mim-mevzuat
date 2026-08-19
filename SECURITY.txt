@@ -1,0 +1,74 @@
+MİM MEVZUAT — GÜVENLİK
+=========================
+
+----------------------------------------------------------------
+1. KAYNAK İNDİRME GÜVENLİĞİ
+----------------------------------------------------------------
+Resmi web sitelerinden belge indirirken:
+  - Arbitrary code ÇALIŞTIRILMAZ (indirilen HTML/JS asla execute
+    edilmez; yalnızca statik metin/DOM parse edilir — headless
+    browser script çalıştırma modu ingestion pipeline'ında
+    KULLANILMAZ).
+  - İndirilen belge (PDF/DOC/DOCX/HTML) yalnızca VERİ olarak işlenir,
+    hiçbir koşulda executable olarak ele alınmaz.
+  - PDF/DOCX parse işlemleri sandbox'lanmış/izole bir işlem içinde
+    yapılır; parser kütüphanelerinin bilinen güvenlik açıkları
+    (malformed file exploit'leri) takip edilir, güncel tutulur.
+  - OCR yalnızca gerçekten taranmış (metin katmanı olmayan) belgeler
+    için devreye girer; varsayılan olarak native text extraction
+    denenir.
+
+----------------------------------------------------------------
+2. KULLANICI VERİSİ
+----------------------------------------------------------------
+  - Kullanıcının yüklediği belgeler uygulama dışına PAYLAŞILMAZ.
+  - Proje verileri (Project Mode) yerel tutulur; bulut senkronizasyonu
+    varsayılan olarak KAPALI, yalnızca kullanıcı açıkça isterse
+    (Faz 3+ konusu) devreye alınır.
+  - LLM sağlayıcısına gönderilen içerik (retrieved evidence + query)
+    minimal tutulur — gereksiz kullanıcı proje verisi prompt'a
+    eklenmez.
+
+----------------------------------------------------------------
+3. LLM PROVIDER SINIRLARI
+----------------------------------------------------------------
+  - LLM'e API anahtarları/credential'lar kod içinde SABİT yazılmaz;
+    ortam değişkeni/secret store üzerinden yönetilir.
+  - LLM çıktısı, kullanıcıya gösterilmeden önce Citation Enforcer'dan
+    geçer (bkz. RAG_DESIGN.txt bölüm 6) — bu hem hallucination hem de
+    prompt injection savunmasının bir parçasıdır: kullanıcı yüklediği
+    bir belge içine "sistem talimatlarını yok say" tarzı bir metin
+    koyarsa, bu metin yalnızca Evidence olarak işlenir, ASLA sistem
+    talimatı olarak yorumlanmaz (retrieved content ve system prompt
+    mimari olarak ayrı tutulur).
+
+----------------------------------------------------------------
+4. GÜNCELLEME/CRAWL GÜVENLİĞİ (Update Engine)
+----------------------------------------------------------------
+  - Update Engine yalnızca ÖNCEDEN TANIMLI, sabit bir kaynak listesini
+    (SOURCE_POLICY.txt hiyerarşisindeki resmi siteler) tarar; kullanıcı
+    girdisiyle keşfedilen rastgele URL'ler otomatik izlenmeye
+    EKLENMEZ.
+  - Taranan içerik her zaman "yeni versiyon adayı" olarak işaretlenir,
+    insan onayı olmadan production corpus'a girmez (bkz.
+    UPDATE_ENGINE.txt bölüm 3).
+
+----------------------------------------------------------------
+5. UYGULAMA KATMANI (genel)
+----------------------------------------------------------------
+  - Standart OWASP ilkeleri: girdi doğrulama, SQL injection'a karşı
+    parametreli sorgular, XSS'e karşı çıktı escaping (UI markdown/HTML
+    render ederken citation linkleri ve belge metinleri sanitize
+    edilir).
+  - Rule Engine formülleri kullanıcı girdisinden DİNAMİK KOD ÜRETİMİ
+    yapmaz (ör. eval() tarzı yaklaşımlar YASAK); formüller önceden
+    tanımlı, test edilmiş fonksiyonlardır.
+
+----------------------------------------------------------------
+6. KAPSAM DIŞI (bu turda ele alınmadı, ileride ayrı değerlendirme gerekir)
+----------------------------------------------------------------
+  - Çok kullanıcılı/bulut dağıtımda kimlik doğrulama & yetkilendirme
+    modeli (Faz 1 tek kullanıcı/yerel varsayımıyla çalışır).
+  - BIM plugin API'sinin kimlik doğrulama/yetkilendirme detayları
+    (yalnızca sözleşme taslağı var, güvenlik modeli implement
+    aşamasında ayrıca tasarlanmalı).

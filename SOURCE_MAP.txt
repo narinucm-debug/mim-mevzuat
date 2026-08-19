@@ -1,0 +1,187 @@
+MİM MEVZUAT — KAYNAK HARİTASI (FAZ 0 İLK TARAMA)
+====================================================
+NOT: Bu bir INGESTION KAYDI DEĞİLDİR — henüz hiçbir belge sisteme
+alınmadı. Bu doküman, Faz 1 ingestion'ı için hangi kaynaktan
+başlanacağını belirlemek amacıyla yapılan bir keşif taramasının
+notlarıdır. Her satırdaki bilgi, bu turda yapılan web araştırmasından
+(2026-08-19) geliyor ve ingestion öncesi mevzuat.gov.tr üzerinden
+BİREBİR doğrulanmalıdır (bkz. SOURCE_POLICY.txt bölüm 2).
+
+----------------------------------------------------------------
+DOĞRULAMA NOTU (2026-08-19, Faz 1 başlangıç denemesi)
+----------------------------------------------------------------
+mevzuat.gov.tr'yi bu ortamdan otomatik olarak çekme denendi, üç ayrı
+yöntemde de engelle karşılaşıldı:
+  - WebFetch: "unable to verify the first certificate" (TLS zinciri
+    doğrulanamadı) — tüm mevzuat.gov.tr URL'lerinde.
+  - Headless tarayıcı (Claude Browser): sayfa ana çerçevesi yükleniyor
+    ama içerik JS ile render ediliyor / iframe içinde; get_page_text
+    yalnızca site iskeletini (menü, footer) yakalıyor, asıl metni
+    değil. Yine de bir denemede doğru belgeye ait bir .doc bağlantısı
+    (7.5.23722.doc — Planlı Alanlar İmar Yönetmeliği'nin MevzuatKod'u
+    ile örtüşüyor) bulundu; bu, URL eşlemesinin muhtemelen doğru
+    olduğuna dair zayıf bir kanıt, ama madde-madde doğrulama DEĞİL.
+  - curl (--insecure ile bile): .doc dosyası indirme denemesi 120
+    saniyede tamamlanmadı, arkaplanda askıda kaldı.
+
+SONUÇ (GÜNCELLEME 2026-08-19, aynı gün ilerleyen saatlerde): Yukarıdaki
+engel ÇÖZÜLDÜ. Kök neden analizi (openssl s_client, curl -v ile) iki
+ayrı ve bağımsız sorunu ortaya çıkardı:
+
+  1. TLS ZİNCİR SORUNU (sunucu yanlış yapılandırması): mevzuat.gov.tr,
+     el sıkışmada yalnızca yaprak sertifikayı (*.tccb.gov.tr) sunuyor,
+     ara sertifikayı (issuer: "GeoTrust TLS RSA CA G1") GÖNDERMİYOR.
+     `openssl s_client -showcerts` ile doğrulandı: "verify error:num=21:
+     unable to verify the first certificate". Windows'un schannel'ı
+     (curl'ün bu makinede kullandığı) eksik sertifikayı AIA (Authority
+     Information Access) ile otomatik tamamladığı için curl bazen
+     TCP/TLS seviyesinde "başarılı" görünüyordu; Python/requests gibi
+     kütüphaneler bunu YAPMAZ ve reddeder — WebFetch'in hatası buydu.
+  2. WAF/BOT FİLTRESİ: Sunucu, tarayıcı benzeri olmayan isteklere (curl
+     varsayılan User-Agent'ı, HEAD metodu) yanıt vermeden bağlantıyı
+     askıda bırakıyor. Gerçekçi bir tarayıcı User-Agent'ı + GET
+     kullanılınca istek 0.3 saniyede 200 OK döndü.
+
+ÇÖZÜM (verify=False YOLUNA GİDİLMEDEN, SECURITY.txt'e uygun şekilde):
+eksik ara sertifika (cacerts.geotrust.com'dan resmi olarak indirildi,
+DigiCert Global Root G2'ye zincirleniyor — güvenilir bir kök) projeye
+kaydedildi: src/mim_mevzuat/ingestion/certs/geotrust_tls_rsa_ca_g1.pem.
+Bu sertifika, certifi'nin varsayılan güven demetine EKLENEREK
+kullanılıyor (src/mim_mevzuat/ingestion/http_client.py) — tam
+sertifika doğrulaması korunuyor, hiçbir güvenlik kontrolü kapatılmadı.
+
+DOĞRULAMA: Otopark Yönetmeliği'nin resmi konsolide PDF'i
+(MevzuatMetin/yonetmelik/7.5.24408.pdf) bu yöntemle GERÇEKTEN indirildi
+ve PyMuPDF ile metne çevrildi — 10 sayfa, Türkçe karakterler (İ, ı, Ş,
+ş, Ğ, ğ, Ç, ç, Ö, ö, Ü, ü) doğru çıkarıldı, "MADDE 1" gibi madde
+başlıkları ve "(Değişik ibare:RG-16/6/2022-31868)" gibi INLINE
+DEĞİŞİKLİK İŞARETLERİ (hangi maddenin hangi Resmi Gazete tarihinde
+değiştiğini gösteren) sağlam çıktı. Bu, UPDATE_ENGINE.txt'nin
+versiyonlama varsayımını doğrudan güçlendiriyor: mevzuat.gov.tr
+konsolide metni yalnızca "güncel hal" değil, madde bazında değişiklik
+provenance'ı da taşıyor. Otomatik test: tests/integration/
+test_live_mevzuat_gov_tr_fetch.py (canlı ağ testi, `pytest -m network`
+ile çalıştırılır) + tests/test_ingestion_pdf_extraction.py (fixture
+tabanlı, 4/4 geçti).
+
+(b) MEVZUAT-MCP DEĞERLENDİRMESİ: github.com/saidsurucu/mevzuat-mcp
+incelendi — MIT lisanslı, kendi HTTP client'ı var, ama yalnızca MCP
+sunucusu (stdio protokolü) olarak tasarlanmış, bağımsız Python
+kütüphanesi olarak kullanım için dokümantasyon yok; bakım durumu net
+değil. KARAR: şimdilik BENİMSENMEDİ — yukarıdaki doğrudan çözüm zaten
+çalışıyor, minimal bağımlılık taşıyor (requests+certifi+pymupdf) ve
+SOURCE_POLICY.txt bölüm 3'ün "üçüncü taraf araca körü körüne güvenme"
+uyarısıyla daha uyumlu. İleride arama/keşif kolaylığı için tekrar
+değerlendirilebilir.
+
+KALAN SINIRLAMA: Bu doğrulama yalnızca Otopark Yönetmeliği için
+yapıldı. Diğer 4 çekirdek yönetmeliğin PDF/DOC bağlantıları henüz aynı
+şekilde teyit edilmedi (bkz. aşağıdaki liste) — aynı yöntemle
+doğrulanmaları Faz 1.3'ün bir sonraki adımıdır.
+
+----------------------------------------------------------------
+FAZ 1 ÇEKİRDEK KAPSAM ADAYI (5 yönetmelik)
+----------------------------------------------------------------
+
+1. Planlı Alanlar İmar Yönetmeliği
+   Durum:        Yürürlükte
+   Son değişiklik: 1 Temmuz 2026 (RG 33297) — asansör zorunluluğu, süs
+                  havuzu tanımı, emsal hesabı, ofis-konut dönüşümü;
+                  ayrıca 14 Ocak 2026 (RG 33137) — yangın merdiveni/
+                  bahçe mesafesi hükümleri
+   Konsolide:     mevzuat.gov.tr/mevzuat?MevzuatNo=23722&MevzuatTur=7&MevzuatTertip=5
+   Doğrulama:     mevzuat.gov.tr sayfası üzerinden ingestion öncesi
+                  teyit edilmeli (bu tur yalnızca ikincil haber
+                  kaynaklarıyla çapraz kontrol edildi)
+
+2. Mekânsal Planlar Yapım Yönetmeliği
+   Durum:        Yürürlükte
+   Son değişiklik: 22 Ocak 2026 (Ek1-A gösterimleri, yenilenebilir
+                  enerji tesisleri, ulaşım sistemleri vb.)
+   Konsolide:     mevzuat.gov.tr/mevzuat?MevzuatNo=19788&MevzuatTur=7&MevzuatTertip=5
+   İlk yayın:     RG 14/06/2014, sayı 29030
+
+3. Otopark Yönetmeliği
+   Durum:        Yürürlükte
+   Not:           EV şarj altyapısına ilişkin hükümler eklenmiş (ör.
+                  20+ zorunlu otopark kapasiteli yeni yapılarda en az
+                  %5 şarj üniteli düzenleme; site/apartman ortak
+                  otoparklarında şarj tesisatı için yapı ruhsatı
+                  aranmaması) — bu oranlar İKİNCİL kaynaklardan
+                  derlendi, ingestion sırasında madde numarasıyla
+                  BİREBİR doğrulanmadan rule pack'e alınmamalı.
+   Konsolide:     mevzuat.gov.tr/mevzuat?MevzuatNo=24408&MevzuatTur=7&MevzuatTertip=5
+   İlgili ek:     Şarj Hizmeti Yönetmeliği —
+                  mevzuat.gov.tr/mevzuat?MevzuatNo=39454&MevzuatTur=7&MevzuatTertip=5
+
+4. Binaların Yangından Korunması Hakkında Yönetmelik
+   Durum:        Yürürlükte
+   Kabul:         27/11/2007, 2007/12937 sayılı BKK; RG 19/12/2007, 26735
+   Son değişiklik: 1 Temmuz 2025 (RG 32943) — bina yöneticisi/mülk
+                  sahibi sorumluluğu, mevcut binalarda eksiklik giderme
+                  süresi (31 Aralık 2025)
+   Konsolide:     mevzuat.gov.tr/mevzuat?MevzuatNo=200712937&MevzuatTur=21&MevzuatTertip=5
+   Ek kaynak:     CSB "Yönetmelik Kılavuzu" (meslekihizmetler.csb.gov.tr) —
+                  authoritative DEĞİL ama resmi bakanlık yayını,
+                  "yardımcı açıklama" kategorisinde kullanılabilir
+
+5. Sığınak Yönetmeliği
+   Durum:        Yürürlükte
+   Tarihçe:       İlk yürürlük 25.10.1988; kapsamlı yenileme
+                  07.11.2025 ile yapılmış (ikincil kaynak bilgisi —
+                  RG sayı/tarihi mevzuat.gov.tr'den TEYİT EDİLMELİ)
+   Not:           mevzuat.gov.tr eski format linki bulundu
+                  (MevzuatKod=7.5.4883) — güncel URL şemasıyla
+                  (MevzuatNo=...&MevzuatTur=...) çapraz kontrol
+                  gerekiyor, bu tur netleştirilemedi.
+
+----------------------------------------------------------------
+FAZ 2/3 İÇİN ARAŞTIRILACAK (bu turda yalnızca yüzeysel tarandı)
+----------------------------------------------------------------
+
+  - Erişilebilirlik: TS 9111 (TSE standardı — telif/erişim kısıtı
+    olabilir, TSE'den satın alma gerekebilir; yönetmelik değil
+    standart olduğu için SOURCE_POLICY hiyerarşisinde ayrı ele
+    alınmalı), Engelliler Hakkında Kanun ve ilişkili yönetmelik
+    hükümleri, "Binalar için Erişilebilirlik İzleme ve Denetleme
+    Formu" (aile.tr) bulundu ama kaynak zinciri netleştirilmedi.
+  - Binalarda Enerji Performansı Yönetmeliği (BEP-TR):
+    Konsolide: mevzuat.gov.tr/File/GeneratePdf?mevzuatNo=13594&...
+    Not: madde 23'teki oranlar (%5, 2000/5000 m2 gibi) ZAMANA BAĞLI
+    parametrik hükümler içeriyor — versiyonlama açısından özellikle
+    dikkatli ele alınmalı, ingestion'da bu tür "tarihe göre değişen
+    eşik" maddeleri ayrı bir alt-versiyon mekanizması gerektirebilir.
+  - Asansör Yönetmeliği: bu turda doğrulanmadı.
+  - Yapı ruhsatı/proje üretimini etkileyen temel kanunlar: İmar Kanunu
+    (3194 sayılı) ve Yapı Denetimi Hakkında Kanun (4708 sayılı) —
+    bu turda doğrulanmadı, Faz 1 kapsamına alınmadıysa Faz 2'de
+    araştırılmalı.
+
+----------------------------------------------------------------
+YEREL İDARE KAYNAKLARI — BU TURDA ARAŞTIRILMADI
+----------------------------------------------------------------
+Ankara (Çankaya, Mamak, Gölbaşı, Etimesgut, Altındağ, Pursaklar) ve
+Antalya/Finike için resmi imar müdürlüğü/plan notu kaynakları bu turun
+kapsamı dışında tutuldu — her idare ayrı bir web sitesi/doküman yapısı
+gerektirdiğinden, Faz 3'te idare bazlı ayrı bir araştırma+ingestion
+turu öneriliyor (bkz. PLAN.txt bölüm 5).
+
+----------------------------------------------------------------
+TEKNİK ERİŞİM ARACI NOTU
+----------------------------------------------------------------
+"mevzuat-mcp" (github.com/saidsurucu/mevzuat-mcp) — mevzuat.gov.tr ve
+bedesten.adalet.gov.tr üzerinden programatik arama/erişim sağlayan
+açık kaynak MCP sunucusu bulundu. Faz 1 ingestion hızını artırmak için
+değerlendirilmeye değer, ancak authoritative kaynak DEĞİLDİR (bkz.
+SOURCE_POLICY.txt bölüm 3).
+
+----------------------------------------------------------------
+GENEL UYARI
+----------------------------------------------------------------
+Bu doküman haber siteleri, hukuk bültenleri ve ikincil kaynaklardan
+derlenmiştir (Kontder, İMO, TBB, Alomaliye, İnşaPORT, Hürriyet,
+ElektrikTesisatPortalı, IstasyonLaw, EnerjiHaber, blokgorevlisi.com
+vb. — bkz. arama sonuçları). Bunların HİÇBİRİ sistemde authoritative
+source olarak kaydedilmeyecek; yalnızca "nereye bakılacağını" işaret
+etmek için kullanıldı. Gerçek ingestion, yalnızca mevzuat.gov.tr
+konsolide metninden ve resmigazete.gov.tr'den yapılacaktır.

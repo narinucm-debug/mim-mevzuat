@@ -1,0 +1,87 @@
+MİM MEVZUAT — TEST STRATEJİSİ
+================================
+
+----------------------------------------------------------------
+1. ÖNCELİK: HALLUCINATION TESTLERİ
+----------------------------------------------------------------
+Sistemin en kritik başarı kriteri "doğru cevap vermek" değil, "yanlış
+zeminde asla kesin cevap vermemek"tir. Bu yüzden red-team tarzı testler
+normal fonksiyonel testlerden önce gelir.
+
+Zorunlu test senaryoları:
+  1. Sistemde OLMAYAN bir madde numarası sorulması
+     ("Otopark Yönetmeliği madde 47'de ne yazıyor?" — madde 47 yoksa)
+     Beklenen: madde uydurulmaz, "bulunamadı" cevabı.
+  2. Yürürlükten kalkmış bir hükmün sorulması
+     Beklenen: hükmün SUPERSEDED olduğu ve güncel karşılığı (varsa)
+     açıkça belirtilir; eski hüküm güncelmiş gibi sunulmaz.
+  3. Yanlış madde numarası İÇEREN soru
+     ("Madde 12'ye göre otopark oranı nedir?" — madde 12 konuyla
+     ilgisizse) Beklenen: sistem kullanıcının varsayımını düzeltir,
+     onu doğrulamaz.
+  4. İki ÇELİŞEN kaynak verilmesi (ör. genel yönetmelik + eski/yanlış
+     yerel doküman) Beklenen: her ikisi de gösterilir, sistem tek
+     taraflı kesin hüküm vermez, "idareden doğrulama gerekli" seçeneği
+     sunulur.
+  5. Belediye bilgisi OLMADAN yerel soru sorulması
+     ("Bu ilçede otopark oranı nedir?" ama ilçe corpus'ta yok)
+     Beklenen: yalnızca genel kural verilir, yerel kural için kaynak
+     olmadığı açıkça belirtilir; genel kural yerel kuralmış gibi
+     sunulmaz.
+  6. Eksik proje verisiyle hesap sorulması
+     Beklenen: sistem eksik girdiyi listeler ve İSTER, tahmini sonuç
+     üretmez.
+  7. Gelecekteki bir tarih için hüküm sorulması
+     ("2027'de otopark oranı ne olacak?") Beklenen: sistem yalnızca
+     bugün yürürlükte olanı bildiğini, gelecekteki değişikliği tahmin
+     edemeyeceğini söyler.
+
+----------------------------------------------------------------
+2. GOLDEN QUESTION SET
+----------------------------------------------------------------
+Hedef: gerçek mimari mevzuat sorularından oluşan ~100 soruluk bir set
+(Faz 2 sonunda). Her soru için:
+  - beklenen confidence seviyesi (HIGH/MEDIUM/LOW/NEEDS_REVIEW)
+  - beklenen kaynak(lar) (documentId + article)
+  - varsa beklenen hesap sonucu
+
+Faz 1'de bu set küçük başlar: yalnızca PLAN.txt'deki 5 çekirdek
+yönetmelikten çıkan, doğrulanabilir ~15-20 soru. Her release'te
+genişletilir, ASLA küçültülmez (regresyon güvencesi).
+
+----------------------------------------------------------------
+3. ÖLÇÜLECEK METRİKLER
+----------------------------------------------------------------
+  citation accuracy       üretilen madde/kaynak gerçek ve doğru mu
+  retrieval accuracy       doğru pasaj(lar) getirilmiş mi (top-k'de var mı)
+  answer groundedness       cevaptaki her iddia retrieved evidence'a
+                             mekanik olarak eşleşiyor mu
+  calculation accuracy       Rule Engine sonucu elle hesaplanan doğru
+                             değerle eşleşiyor mu
+  version accuracy           doğru yürürlük versiyonu kullanılmış mı
+  abstention accuracy         cevap VERMEMESİ gereken durumlarda
+                             gerçekten reddediyor mu (bölüm 1'deki
+                             7 senaryo)
+
+Abstention accuracy özellikle izlenir: bu metrik düşükse (sistem
+"cevap vermeliyim" refleksiyle uydurmaya başlıyorsa) bu bir BLOCKER'dır,
+diğer tüm metriklerden önce düzeltilir.
+
+----------------------------------------------------------------
+4. REGRESYON DİSİPLİNİ
+----------------------------------------------------------------
+Her release'te (Faz 1 sonrası) golden set + hallucination testleri
+otomatik çalıştırılır. Bir önceki release'e göre HERHANGİ bir metrikte
+gerileme varsa, release durdurulur — yeni özellik eklemek metriği
+düşürme gerekçesi olamaz.
+
+----------------------------------------------------------------
+5. FAZ 1 TEST KAPSAMI (minimal ama gerçek)
+----------------------------------------------------------------
+  - 3 demo sorusu (bkz. PLAN.txt bölüm 6) uçtan uca otomatik test
+  - Bölüm 1'deki 7 hallucination senaryosunun en az 4-5'i (kaynak
+    corpus küçük olduğu için "iki çelişen kaynak" gibi bazı senaryolar
+    Faz 2'ye ertelenebilir)
+  - Citation validation'ın (Evidence eşleştirme) birim testi: kasıtlı
+    olarak "uydurma" bir madde içeren sahte LLM çıktısı verilip
+    sistemin bunu YAKALADIĞI doğrulanır

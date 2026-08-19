@@ -1,0 +1,94 @@
+MİM MEVZUAT — RAG / SEARCH TASARIMI
+======================================
+
+----------------------------------------------------------------
+1. HYBRID RETRIEVAL
+----------------------------------------------------------------
+  Semantic search (embedding benzerliği)
+        +
+  Keyword / BM25 (SQLite FTS5)
+        +
+  Metadata filtreleri (jurisdiction, document, topic, effective date,
+  authority)
+        -> birleştirilmiş/rerank edilmiş sonuç kümesi
+
+Salt semantic veya salt keyword yeterli değildir: mevzuat metninde
+"emsal", "KAKS" gibi terimler hem tam kelime eşleşmesi hem de anlamsal
+yakınlık gerektirir (kullanıcı "kapalı alan hesaba giriyor mu" diye
+sorduğunda "emsale dahil alan" maddesini bulabilmeli).
+
+----------------------------------------------------------------
+2. QUERY UNDERSTANDING (LLM'in kullanıldığı ADIM — kaynak değil)
+----------------------------------------------------------------
+Kullanıcı sorgusu doğrudan index'e atılmaz. Önce yapılandırılmış bir
+sorguya çözümlenir:
+
+  Girdi:  "Çankaya'da 80 daire için otopark hesabı"
+  Çıktı (StructuredQuery):
+    jurisdiction: [TR, TR.Ankara, TR.Ankara.Cankaya]
+    topics: ["otopark"]
+    entities: { buildingType: "konut", unitCount: 80 }
+    documentHint: null   (kullanıcı belge adı vermedi)
+
+Bu adım LLM ile yapılır (query understanding), ama ÇIKTI yalnızca
+retrieval'ı yönlendirir — kendisi cevap DEĞİLDİR ve kullanıcıya
+kaynaksız normatif bir ifade olarak sunulmaz.
+
+----------------------------------------------------------------
+3. FİLTRELER
+----------------------------------------------------------------
+  jurisdiction     (bölüm 1'de belirtilen genişletme mantığıyla)
+  document          (kullanıcı belirli bir yönetmelik adı verdiyse)
+  topic             (otopark, emsal, yangın, sığınak, erişilebilirlik...)
+  effective date     (varsayılan: "bugün itibarıyla yürürlükte olan";
+                      kullanıcı geçmiş bir tarih belirtirse o tarihte
+                      yürürlükte olan versiyon aranır — asla "en yeni"
+                      otomatik varsayılmaz, sorgu tarihine göre çözülür)
+  authority          (bakanlık / belediye / vb.)
+
+----------------------------------------------------------------
+4. CHUNKING — YAPISAL SINIRLARI KORUMA
+----------------------------------------------------------------
+Chunking KÖR TOKEN SAYISINA göre yapılmaz. Mevzuat metninin doğal
+yapısı (Bölüm > Madde > Fıkra > Bent) chunk sınırı olarak kullanılır:
+  - Her chunk mümkünse tek bir madde/fıkra bütünlüğünde olur.
+  - Çok uzun bir madde varsa fıkra/bent seviyesinde bölünür, ama
+    madde numarası/başlık HER chunk'ın metadata'sında tekrar edilir
+    (chunk kaybolsa bile hangi maddeye ait olduğu belli olsun).
+  - Plan notları gibi serbest yapılı belgelerde, başlık hiyerarşisi
+    (bkz. DATA_MODEL.txt "Section" alt tipi) chunk sınırı olur.
+
+----------------------------------------------------------------
+5. RERANKING (opsiyonel, Faz 2+)
+----------------------------------------------------------------
+İlk hybrid sonuçlar (ör. top-20) üzerinde, sorgu ile chunk arasında
+daha hassas bir çapraz-kodlayıcı (cross-encoder) reranker ile top-5'e
+indirme. Faz 1'de atlanabilir; BM25+embedding skorlarının ağırlıklı
+birleşimi yeterli başlangıç noktasıdır.
+
+----------------------------------------------------------------
+6. CITATION ENFORCEMENT (retrieval tarafındaki sorumluluk)
+----------------------------------------------------------------
+Retrieval Orchestrator'ın ürettiği her sonuç kümesi, Answer Composer'a
+gitmeden önce şu formatta paketlenir:
+
+  Evidence[i] = {
+    documentId, article, paragraph, subparagraph, text,
+    sourceUrl, version, jurisdiction, retrievalScore
+  }
+
+Answer Composer'a SADECE bu paket verilir; ham corpus'a veya modelin
+"genel bilgisine" erişim YOKTUR (mimari olarak ayrılmış, prompt
+disiplinine bırakılmamış bir izolasyon). Composer'ın ürettiği her
+madde/URL/tarih referansı, cevap kullanıcıya gösterilmeden önce bu
+Evidence paketiyle mekanik olarak (string/ID eşleştirme) doğrulanır —
+eşleşmeyen referans içeren cevap engellenir (bkz. ARCHITECTURE.txt
+bölüm 2).
+
+----------------------------------------------------------------
+7. BOŞ SONUÇ DURUMU
+----------------------------------------------------------------
+Retrieval hiçbir Evidence bulamazsa (skor eşiğinin altındaysa ya da
+sonuç yoksa), Answer Composer HİÇ ÇAĞRILMAZ. Sabit red mesajı
+döndürülür (bkz. SOURCE_POLICY.txt bölüm 5). Bu, "düşük alaka
+skorlu ama yine de bir şeyler söyleyen" cevapları önler.

@@ -1,0 +1,258 @@
+MİM MEVZUAT — FAZ 0 SONUÇ RAPORU
+===================================
+Tarih: 2026-08-19
+
+----------------------------------------------------------------
+1. FEASIBILITY (FİZİBİLİTE)
+----------------------------------------------------------------
+Teknik olarak UYGULANABİLİR. En kritik risk teknik değil, İÇERİK
+YÖNETİMİDİR: Türk mevzuatı sık değişiyor (bu turda taranan 5
+yönetmelikten 4'ünde 2025-2026 içinde değişiklik bulundu), ve
+"hallucination'sız mevzuat asistanı" hedefinin gerçek zorluğu RAG
+altyapısı kurmak değil, versiyonlama + citation enforcement
+disiplinini KOD SEVİYESİNDE (prompt disiplinine değil) zorlamaktır.
+Bu turdaki mimari tasarım bu ayrımı merkeze koyacak şekilde kuruldu.
+
+Olumlu bulgu: mevzuat.gov.tr'nin her yönetmelik için "konsolide/tek
+metin" tutması, versiyonlama mimarisini önemli ölçüde kolaylaştırıyor
+— her değişiklikte diff'i kendimiz Resmî Gazete'den çıkarmak yerine,
+resmi konsolide kaynağı periyodik olarak izleyip fark üretebiliriz.
+
+----------------------------------------------------------------
+2. RECOMMENDED ARCHITECTURE
+----------------------------------------------------------------
+Katmanlı, local-first mimari: Ingestion -> Corpus Store -> Hybrid
+Index -> Retrieval Orchestrator -> Citation Enforcer (mimari olarak
+ayrı, prompt'a güvenmeyen bir kapı) -> Answer Composer -> Rule Engine
+-> Project Context -> UI. Update Engine yan tarafta bağımsız çalışan
+bir izleme/onay bileşeni. Detay: ARCHITECTURE.txt.
+
+----------------------------------------------------------------
+3. TECHNOLOGY STACK
+----------------------------------------------------------------
+Python 3.11+ / FastAPI, SQLite + FTS5 (BM25), yerel embedding index
+(sqlite-vec/LanceDB), çok dilli açık embedding modeli, PyMuPDF/
+pdfplumber ile native PDF çıkarımı, sağlayıcı-agnostik LLM arayüzü,
+Faz 1'de minimal yerel web UI. Gerekçe ve alternatifler:
+ARCHITECTURE.txt bölüm 3-4.
+
+----------------------------------------------------------------
+4. OFFICIAL SOURCE MAP
+----------------------------------------------------------------
+5 çekirdek yönetmelik için ilk kaynak taraması yapıldı ve hepsinin
+YÜRÜRLÜKTE olduğu, güncel değişiklik tarihleriyle birlikte teyit
+edildi (Planlı Alanlar İmar Y., Mekânsal Planlar Yapım Y., Otopark Y.,
+Yangın Y., Sığınak Y.). Erişilebilirlik, enerji performansı, asansör
+ve yerel idare kaynakları bu turda yalnızca yüzeysel tarandı — ingestion
+öncesi ayrıca derinleştirilmeli. Detay ve tüm linkler: SOURCE_MAP.txt.
+ÖNEMLİ SINIRLAMA: bu harita ikincil/haber kaynaklarıyla çapraz
+kontrol edilerek derlendi; hiçbir madde numarası/oran bu turda
+mevzuat.gov.tr üzerinden birebir doğrulanmadı — bu, Faz 1'in ilk işi
+olmalı.
+
+----------------------------------------------------------------
+5. DATA MODEL
+----------------------------------------------------------------
+Document / Article / Jurisdiction hiyerarşisi / Project / RulePack /
+CalculationTrace / Answer şemaları tanımlandı; versiyonlama baştan
+şemaya gömülü (in-place update yok, yalnızca supersedes/supersededBy
+zinciri). Detay: DATA_MODEL.txt.
+
+----------------------------------------------------------------
+6. INGESTION DESIGN
+----------------------------------------------------------------
+PDF/HTML/DOC/TXT desteği; native text layer öncelikli, OCR yalnızca
+taranmış belgelerde; madde/fıkra/bent yapısal sınırlarını koruyan
+chunking (kör token chunking YOK). Detay: ARCHITECTURE.txt bölüm 1,
+RAG_DESIGN.txt bölüm 4.
+
+----------------------------------------------------------------
+7. RETRIEVAL DESIGN
+----------------------------------------------------------------
+BM25 + embedding + metadata filtre hibrit araması; LLM yalnızca query
+understanding için kullanılır (sorguyu jurisdiction/topic/entity'ye
+çözümler), cevabın kendisi değildir. Detay: RAG_DESIGN.txt.
+
+----------------------------------------------------------------
+8. CITATION SYSTEM
+----------------------------------------------------------------
+İki katmanlı savunma: (a) retrieval boşsa Answer Composer hiç
+çağrılmaz — sabit red mesajı döner; (b) üretilen her cevap, kullanıcıya
+gösterilmeden önce içindeki her atıf (madde/URL/tarih) retrieved
+Evidence paketiyle mekanik olarak eşleştirilir, eşleşmeyen cevap
+engellenir. Bu, "prompt'a güven" yerine kod seviyesinde zorlama.
+Detay: ARCHITECTURE.txt bölüm 2, RAG_DESIGN.txt bölüm 6.
+
+----------------------------------------------------------------
+9. RULE ENGINE DESIGN
+----------------------------------------------------------------
+Versiyonlanmış, insan tarafından çıkarılmış rule pack'ler; LLM formül
+üretmez, yalnızca girdi eşleme ve sonuç açıklama yapar. Her hesap
+zorunlu bir Calculation Trace (INPUTS/RULE/METHOD/RESULT/SOURCE/
+VERSION/CONFIDENCE) üretir; trace olmadan sonuç gösterilmez. Faz 1
+kapsamı dışında, Faz 2'de implement edilecek. Detay: RULE_ENGINE.txt.
+
+----------------------------------------------------------------
+10. PROJECT MODE
+----------------------------------------------------------------
+Proje verisi (parsel, KAKS/TAKS, birim sayısı, otopark vb.) bağlam
+olarak sorgulara eklenir; eksik veri asla tahmin edilmez, kullanıcıdan
+istenir. Faz 2 kapsamı. Detay: DATA_MODEL.txt bölüm 4.
+
+----------------------------------------------------------------
+11. UPDATE/VERSIONING DESIGN
+----------------------------------------------------------------
+Güncelleme, sistemin kendi otomatik izleme bileşeninin (Update Engine)
+işidir — manuel doküman düzenlemesi değil. Kaynak değişikliği tespit
+edildiğinde diff üretilir, insan onayı olmadan production'a alınmaz.
+Faz 1'de Update Engine implement edilmez ama veri modeli bu mimariye
+göre baştan kurulur. Detay: UPDATE_ENGINE.txt.
+
+----------------------------------------------------------------
+12. UI PROPOSAL
+----------------------------------------------------------------
+Faz 1: minimal yerel web UI (soru kutusu + cevap kartı + tıklanabilir
+citation). Faz 2+: yan panel (Kaynaklar/Projeler/Hesaplar/
+Güncellemeler/Favoriler), Project Mode entegrasyonu. Native masaüstü/
+mobil UI'ye çekirdek doğrulanmadan yatırım yapılmıyor. Detay:
+ARCHITECTURE.txt bölüm 7.
+
+----------------------------------------------------------------
+13. LLM PROVIDER STRATEGY
+----------------------------------------------------------------
+Sağlayıcı-agnostik arayüz (Claude/OpenAI/Gemini/Ollama), Faz 1'de tek
+sağlayıcı ile başla ama kod değişikliği olmadan sağlayıcı
+değiştirilebilsin. LLM rolü sınırlı: query understanding + retrieval
+orkestrasyon + reasoning-over-evidence + doğal dil formatlama. Detay:
+ARCHITECTURE.txt bölüm 6.
+
+----------------------------------------------------------------
+14. LOCAL/CLOUD STRATEGY
+----------------------------------------------------------------
+Corpus, index, proje verisi yerel; yalnızca LLM çağrısı ve güncel
+mevzuat kontrolü ağ gerektirir. Bu ayrım offline arama/hesap
+kabiliyeti sağlar. Detay: ARCHITECTURE.txt bölüm 5.
+
+----------------------------------------------------------------
+15. HALLUCINATION DEFENSE
+----------------------------------------------------------------
+10 pazarlıksız kural (SOURCE_POLICY.txt) + mimari izolasyon (retrieved
+evidence ile system prompt/LLM hafızası arası kesin ayrım, bkz.
+SECURITY.txt bölüm 3) + post-hoc citation validation. Bu üç katman
+birlikte çalışır; hiçbiri tek başına yeterli değildir.
+
+----------------------------------------------------------------
+16. TESTS
+----------------------------------------------------------------
+7 zorunlu hallucination senaryosu + golden question set (Faz 1: ~15-20
+soru, Faz 2 hedefi: 100) + 6 metrik (citation/retrieval/groundedness/
+calculation/version/abstention accuracy). Abstention accuracy en
+kritik metrik olarak işaretlendi — düşükse release BLOCKER. Detay:
+TEST_STRATEGY.txt.
+
+----------------------------------------------------------------
+17. SECURITY
+----------------------------------------------------------------
+Kaynak indirmede code execution yok, corpus veri olarak işlenir,
+kullanıcı belgesi dışarı paylaşılmaz, prompt injection'a karşı
+retrieved-content/system-prompt izolasyonu, Update Engine yalnızca
+sabit kaynak listesini tarar. Detay: SECURITY.txt.
+
+----------------------------------------------------------------
+18. PROTOTYPE STATUS
+----------------------------------------------------------------
+GÜNCELLEME (2026-08-19, Faz 1 başlangıcı): Python 3.12 kuruldu (bu
+makinede daha önce yoktu). Faz 1.1, 1.2 ve 1.6'nın ilk sürümü
+TAMAMLANDI ve GERÇEKTEN TEST EDİLDİ:
+  - src/mim_mevzuat/schema.sql — DATA_MODEL.txt'i uygulayan SQLite şema
+    (document/article/project/rule_pack/calculation_trace/answer +
+    FTS5 tam metin arama)
+  - src/mim_mevzuat/citation_enforcer.py — atıf doğrulama katmanı
+  - tests/ — 11 test, hepsi geçti (pytest ile doğrulandı, bkz. altta)
+GÜNCELLEME 2 (2026-08-19, aynı gün): Faz 1.3 engeli ÇÖZÜLDÜ. Kök neden
+analizi iki ayrı sorun ortaya çıkardı — mevzuat.gov.tr'nin TLS ara
+sertifikası göndermemesi (sunucu yanlış yapılandırması) ve bir WAF'ın
+tarayıcı olmayan istekleri sessizce düşürmesi. İkisi de güvenlik
+kısayoluna gidilmeden (verify=False KULLANILMADI) düzeltildi:
+src/mim_mevzuat/ingestion/ (http_client.py, mevzuat_gov_tr.py). Otopark
+Yönetmeliği'nin resmi PDF'i canlı olarak çekildi, doğru Türkçe
+karakterlerle metne çevrildi, canlı ağ testiyle doğrulandı (`pytest -m
+network`). Diğer 4 yönetmelik için aynı doğrulama henüz yapılmadı; bu
+ve "PDF sayfa metni -> madde/fıkra kaydı" parser'ı Faz 1'in kalan işi.
+Detay: SOURCE_MAP.txt "Doğrulama Notu", PLAN.txt bölüm 3.
+
+----------------------------------------------------------------
+19. BUILDS
+----------------------------------------------------------------
+2026-08-19 (ilk tur): `pytest tests/ -v` — 11/11 PASSED (schema DDL +
+FTS5 + citation enforcer red-team testleri).
+2026-08-19 (ikinci tur, ingestion sonrası): `pytest tests/ -v` —
+15/15 PASSED (+ 4 PDF çıkarım testi) + `pytest -m network` ile 1/1
+canlı mevzuat.gov.tr fetch testi PASSED. Henüz çalıştırılabilir bir
+uygulama/servis (FastAPI vb.) yok — yalnızca çekirdek kütüphane.
+
+----------------------------------------------------------------
+20. KNOWN LIMITATIONS
+----------------------------------------------------------------
+  - Kaynak haritası ikincil kaynaklarla derlendi; yalnızca Otopark
+    Yönetmeliği bu turda mevzuat.gov.tr'nin gerçek PDF'inden madde
+    seviyesinde doğrulandı (MADDE 1-3 metni doğrulandı, ötesi
+    okunmadı). Diğer 4 çekirdek yönetmelik HÂLÂ madde-madde
+    doğrulanmadı — erişim engeli çözüldüğü için artık bunun önünde
+    teknik bir engel yok, kalan iş yalnızca zaman/kapsam meselesi.
+  - Yerel idare (Çankaya vb.) kaynakları hiç araştırılmadı.
+  - Erişilebilirlik/enerji/asansör mevzuatı yalnızca yüzeysel tarandı.
+  - TS 9111 gibi TSE standartlarının SOURCE_POLICY hiyerarşisindeki
+    tam konumu ve erişim/telif durumu netleştirilmedi.
+  - Rule Engine ve Project Mode tasarım aşamasında, implement
+    edilmedi.
+  - "mevzuat-mcp" gibi üçüncü taraf araçların güvenilirliği/lisansı
+    doğrulanmadı, yalnızca aday olarak not edildi.
+
+----------------------------------------------------------------
+21. BİGGEST RISKS
+----------------------------------------------------------------
+  1. İçerik bakımı yükü: mevzuat sık değişiyor, Update Engine
+     otomasyonu (Faz 3) gelene kadar Faz 1-2'de manuel/yarı-manuel
+     bakım gerekecek — bu sürdürülebilir tutulmalı (kapsamı küçük
+     başlatmak bunun için kasıtlı bir karar).
+  2. Citation enforcement'ın "delik" bırakması: post-hoc validation
+     mantığının kendisi hatalıysa (ör. metin normalize etme sorunları
+     nedeniyle geçerli bir atıfı yanlışlıkla reddetme ya da tersi),
+     bu sistemin GÜVEN temelini zedeler — bu katman özellikle
+     titiz test edilmeli.
+  3. Yerel idare kapsamının genişletilmesi doğrusal değil, her idare
+     ayrı araştırma+format çalışması gerektiriyor — kapsam sürünmesi
+     riski var, faz disiplinine sadık kalınmalı.
+  4. LLM sağlayıcı davranış değişiklikleri (model güncellemeleri)
+     citation/groundedness metriklerini sessizce bozabilir — regresyon
+     testi disiplini (TEST_STRATEGY.txt bölüm 4) bu yüzden zorunlu.
+
+----------------------------------------------------------------
+22. RECOMMENDED NEXT TASKS
+----------------------------------------------------------------
+  1. SOURCE_MAP.txt'teki 5 çekirdek yönetmeliği mevzuat.gov.tr'den
+     madde-madde teyit et (ingestion öncesi zorunlu ön koşul).
+  2. Faz 1.1-1.2: repo/dev ortamı + SQLite şema migrasyonu.
+  3. Faz 1.3-1.4: 5 yönetmeliğin ingestion'ı + FTS5 index.
+  4. Faz 1.6: Citation Enforcer'ı EN ÖNCE, retrieval/answer akışından
+     BAĞIMSIZ test edilebilir bir modül olarak yaz (risk #2'yi
+     azaltmak için erken doğrulama).
+  5. Faz 1.9-1.10: 3 demo sorusu + ilk hallucination testleri.
+  6. Bu aşamalar tamamlanmadan Rule Engine, Project Mode, yerel
+     profiller veya Update Engine otomasyonuna GEÇİLMEMELİ.
+
+----------------------------------------------------------------
+KARAR
+----------------------------------------------------------------
+  GO WITH LIMITATIONS
+
+Gerekçe: Mimari ve veri modeli sağlam bir temel üzerine kurulabilir;
+teknoloji seçimleri kanıtlanmış ve bu ölçek için orantılı. Ancak proje
+GO kararının "sınırsız" olmadığı açıkça not edilmeli: (a) kaynak
+haritası henüz birincil kaynaktan doğrulanmadı, (b) hallucination
+defense'in gerçek etkinliği ancak Faz 1'in citation validation
+testleriyle KANITLANACAK — bu turdaki tasarım bir HİPOTEZDİR, henüz
+ölçülmüş bir sonuç değil. Faz 1'in ÇIKIŞ KRİTERİ (3 demo sorusu +
+hallucination testlerinin geçmesi) karşılanmadan Faz 2'ye
+geçilmemesi, bu GO kararının koşuludur.

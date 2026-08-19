@@ -1,0 +1,142 @@
+MİM MEVZUAT — PROJE PLANI
+==========================
+Durum: Faz 0 (Fizibilite + Tasarım) tamamlandı
+Tarih: 2026-08-19
+
+----------------------------------------------------------------
+1. AMAÇ
+----------------------------------------------------------------
+Türkiye'de mimari proje üretiminde ihtiyaç duyulan mevzuat, yönetmelik,
+plan notu ve teknik düzenlemeleri tek yerde toplayan; doğal dilde soru
+sorulabilen; SADECE doğrulanmış/retrieve edilmiş kaynaklara dayanarak
+cevap veren bağımsız bir mevzuat asistanı.
+
+Bu proje Archicad/Revit plugin ekosisteminden bağımsızdır. İleride BIM
+pluginleri bu sistemin kural motoruyla API üzerinden konuşabilir, ama
+bu ilk fazın kapsamında değildir.
+
+Değer önermesi (tekrar kayıt altına alınmalı, çünkü tüm mimari
+kararların referans noktası budur):
+  "AI mevzuatı biliyor" DEĞİL, "AI hangi resmi hükme baktığını biliyor,
+  bunu gösteriyor ve bilmiyorsa uydurmuyor."
+
+----------------------------------------------------------------
+2. FAZ 0 — TAMAMLANAN İŞLER (bu tur)
+----------------------------------------------------------------
+  1. Teknik fizibilite değerlendirmesi         -> bkz. REPORT.txt
+  2. Güncel resmi kaynak haritası (ilk tarama)  -> bkz. SOURCE_MAP.txt
+  3. Veri modeli                                -> bkz. DATA_MODEL.txt
+  4. Versiyonlama sistemi tasarımı              -> bkz. DATA_MODEL.txt, UPDATE_ENGINE.txt
+  5. Ingestion pipeline tasarımı                -> bkz. ARCHITECTURE.txt
+  6. Search/RAG tasarımı (prototip değil)       -> bkz. RAG_DESIGN.txt
+  7. Citation enforcement tasarımı              -> bkz. RAG_DESIGN.txt, RULE_ENGINE.txt
+  8. Basit chat UI konsepti                     -> bkz. ARCHITECTURE.txt (bölüm 7)
+  9. Project Mode tasarımı                      -> bkz. DATA_MODEL.txt (bölüm 4)
+ 10. Rule Engine tasarımı                       -> bkz. RULE_ENGINE.txt
+ 11. Hallucination test planı                   -> bkz. TEST_STRATEGY.txt
+ 12. Update engine tasarımı                     -> bkz. UPDATE_ENGINE.txt
+
+Bu turda KOD YAZILMADI (kasıtlı). Kullanıcı talimatı: "Henüz dev
+uygulamanın tamamını körlemesine kodlama." Faz 0 çıktısı yalnızca
+tasarım + kaynak doğrulama + karar raporu.
+
+----------------------------------------------------------------
+3. FAZ 1 — ÇEKİRDEK PROTOTİP (başladı — 2026-08-19)
+----------------------------------------------------------------
+Hedef: 3 demo sorusunu source->retrieval->answer->citation zinciriyle
+uçtan uca gösterebilen minimal ama YALAN SÖYLEMEYEN bir sistem.
+
+  1.1  [TAMAM] Repo iskeleti + geliştirme ortamı kurulumu (Python 3.12
+       kuruldu, src/ layout, pyproject.toml, pytest)
+  1.2  [TAMAM] Doküman modeli + SQLite şema migrasyonu
+       (src/mim_mevzuat/schema.sql — document/article/project/
+       rule_pack/calculation_trace/answer + FTS5, testlerle doğrulandı:
+       tests/test_schema.py, 4/4 geçti)
+  1.3  [KISMEN — erişim engeli çözüldü, 1/5 belge doğrulandı] Manuel/
+       yarı-otomatik ingestion: 5 çekirdek yönetmelik (Planlı Alanlar
+       İmar Y., Otopark Y., Yangın Y., Sığınak Y., Mekansal Planlar
+       Yapım Y.) — mevzuat.gov.tr konsolide metinden.
+       ÖNCEKİ ENGEL ÇÖZÜLDÜ (2026-08-19): kök neden analiziyle iki ayrı
+       sorun bulundu ve düzeltildi — (1) sunucu TLS ara sertifikasını
+       göndermiyor (eksik sertifika projeye eklenip certifi demetine
+       dahil edildi, verify=False KULLANILMADI), (2) WAF tarayıcı
+       olmayan istekleri sessizce düşürüyor (gerçekçi User-Agent ile
+       çözüldü). Detay: SOURCE_MAP.txt "Doğrulama Notu".
+       Yeni modül: src/mim_mevzuat/ingestion/ (http_client.py,
+       mevzuat_gov_tr.py). Otopark Yönetmeliği'nin PDF'i CANLI olarak
+       çekildi ve doğru şekilde metne çevrildi (tests/integration/
+       test_live_mevzuat_gov_tr_fetch.py, `pytest -m network` ile
+       geçti; tests/test_ingestion_pdf_extraction.py fixture testleri
+       4/4 geçti). KALAN İŞ: diğer 4 yönetmeliğin PDF/DOC linklerini
+       aynı yöntemle doğrulamak, sonra madde/fıkra parse edip
+       article tablosuna yazan bir parser yazmak (henüz yok — şu an
+       yalnızca "PDF -> sayfa metni" var, "sayfa metni -> madde/fıkra
+       kayıtları" ayrıştırması bir sonraki adım).
+  1.4  [BEKLİYOR] Madde/fıkra bazlı chunking + FTS5 (BM25) index
+       (şema hazır, gerçek veri bekleniyor — bkz. 1.3)
+  1.5  [BEKLİYOR] Embedding index (yerel, çok dilli model) — ops.
+  1.6  [TAMAM — ilk sürüm] Citation enforcement katmanı
+       (src/mim_mevzuat/citation_enforcer.py — evidence olmadan/
+       atıfsız/uydurma madde-URL-versiyon içeren taslaklar mekanik
+       olarak reddediliyor; tests/test_citation_enforcer.py, 7/7 geçti)
+  1.7  [BEKLİYOR] LLM provider abstraction
+  1.8  [BEKLİYOR] Minimal chat UI (yerel web arayüzü)
+  1.9  [BEKLİYOR] 3 demo sorusu için regresyon testi (ingestion'a bağlı)
+  1.10 [KISMEN] Hallucination red-team testleri — Citation Enforcer
+       seviyesinde 4 senaryo (uydurma madde no, uydurma URL, boş
+       evidence, atıfsız cevap) birim testiyle kapsandı; TEST_STRATEGY.txt
+       bölüm 1'deki 7 senaryonun tamamı (çelişen kaynak, yerel idare
+       eksikliği, gelecek tarih vb.) uçtan uca sistem gerektiriyor,
+       ingestion tamamlanınca yazılacak.
+
+Faz 1 KAPSAM DIŞI: Rule Engine hesaplamaları, Project Mode, yerel idare
+profilleri (Çankaya vb.), update engine otomasyonu, çoklu LLM sağlayıcı,
+BIM entegrasyonu, mobil/masaüstü native UI.
+
+----------------------------------------------------------------
+4. FAZ 2 — HESAP + PROJE MODU + YEREL PROFİLLER
+----------------------------------------------------------------
+  2.1  Rule Engine: otopark + emsal/TAKS-KAKS hesap rule pack'leri
+  2.2  Project Mode veri modeli + UI
+  2.3  İlk yerel idare profili: Ankara/Çankaya (pilot ilçe)
+  2.4  Çatışma gösterimi (GENEL / YEREL / ÇATIŞMA-ÖZEL HÜKÜM)
+  2.5  Golden question set genişletme (100 soruya doğru gidiş)
+
+----------------------------------------------------------------
+5. FAZ 3 — UPDATE ENGINE OTOMASYONU + KAPSAM GENİŞLETME
+----------------------------------------------------------------
+  3.1  Otomatik kaynak takibi (resmigazete.gov.tr + mevzuat.gov.tr
+       konsolide metin hash karşılaştırma)
+  3.2  Diff üretimi + review queue UI
+  3.3  Diğer ilçeler (Mamak, Gölbaşı, Etimesgut, Altındağ, Pursaklar,
+       Finike) profil eklenmesi
+  3.4  Erişilebilirlik, enerji performansı, asansör mevzuatının derin
+       kapsanması (Faz 0'da yalnızca yüzeysel tarandı)
+  3.5  BIM plugin API taslağı (Archicad/Revit) — yalnızca sözleşme
+       (contract) tasarımı, implementasyon değil
+
+----------------------------------------------------------------
+6. İLK DEMO TANIMI (Faz 1 çıkış kriteri)
+----------------------------------------------------------------
+Sistem şu 3 soruyu, her seferinde kaynak zincirini görünür kılarak
+cevaplayabilmeli:
+
+  1. "Bir alanın emsale dahil olup olmadığını nasıl kontrol etmeliyim?"
+  2. "Konut projesinde otopark ihtiyacını hesaplamak için hangi
+      bilgiler gerekli?"
+  3. "Bu sorunun cevabını hangi resmi mevzuat maddesine
+      dayandırıyorsun?"
+
+Her cevapta: SOURCE -> RETRIEVAL -> ANSWER -> CITATION adımları ayrı
+ayrı izlenebilir olmalı (loglanabilir/gösterilebilir).
+
+----------------------------------------------------------------
+7. BAŞARI METRİĞİ
+----------------------------------------------------------------
+Kod miktarı değil. Ölçülecek:
+  - citation accuracy (üretilen madde/kaynak gerçek mi, doğru mu)
+  - retrieval accuracy (doğru pasaj getirilmiş mi)
+  - answer groundedness (cevap yalnızca retrieve edilene mi dayanıyor)
+  - calculation accuracy (rule pack sonucu doğru mu)
+  - version accuracy (doğru yürürlük versiyonu kullanılmış mı)
+  - abstention accuracy (cevap vermemesi gereken yerde reddediyor mu)

@@ -1,0 +1,139 @@
+MİM MEVZUAT — VERİ MODELİ
+============================
+
+----------------------------------------------------------------
+1. DOCUMENT (Belge)
+----------------------------------------------------------------
+  documentId            benzersiz kimlik
+  title                 ör. "Otopark Yönetmeliği"
+  authority              ör. "Çevre, Şehircilik ve İklim Değişikliği Bakanlığı"
+  documentType           yönetmelik / kanun / genelge / plan notu / kılavuz
+  jurisdiction            "TR" | "TR.Ankara" | "TR.Ankara.Cankaya" ...
+  publicationDate
+  effectiveDate
+  lastAmendedDate
+  version                 ör. "2026.07" (RG tarihine göre üretilir)
+  sourceUrl               mevzuat.gov.tr konsolide metin linki (birincil)
+  officialSource           kaynak hiyerarşisindeki seviye (bkz. SOURCE_POLICY.txt)
+  retrievedAt
+  validityStatus           ACTIVE / SUPERSEDED / REPEALED / PENDING_REVIEW
+  supersedes               (documentId, önceki versiyon)
+  supersededBy             (documentId, sonraki versiyon — varsa)
+  topics                   ["otopark","emsal","ev-sarj", ...]
+
+----------------------------------------------------------------
+2. ARTICLE (Madde/Fıkra/Bent)
+----------------------------------------------------------------
+  documentId
+  article                 ör. "Madde 5"
+  paragraph                ör. "1"
+  subparagraph              ör. "a"
+  text                      orijinal metin (parafraz DEĞİL)
+  effectiveFrom
+  effectiveTo               (null ise hâlâ yürürlükte)
+  jurisdiction
+  topics
+
+  NOT: Mevzuat yapısına uymayan belgeler (ör. serbest formatlı bakanlık
+  kılavuzu, plan notu paftası) bu şemaya ZORLA sokulmaz. Bu tür belgeler
+  için daha esnek bir "Section" alt tipi kullanılır (aynı temel
+  metadata alanlarını taşır ama article/paragraph/subparagraph yerine
+  serbest başlık hiyerarşisi kullanır).
+
+----------------------------------------------------------------
+3. JURISDICTION HİYERARŞİSİ
+----------------------------------------------------------------
+  TR
+  ├─ TR.Ankara
+  │   ├─ TR.Ankara.Cankaya
+  │   ├─ TR.Ankara.Mamak
+  │   ├─ TR.Ankara.Golbasi
+  │   ├─ TR.Ankara.Etimesgut
+  │   ├─ TR.Ankara.Altindag
+  │   └─ TR.Ankara.Pursaklar
+  └─ TR.Antalya
+      └─ TR.Antalya.Finike
+
+  Sorgu çözümlemesi: "Çankaya'da 80 daire" -> jurisdiction filtresi
+  [TR, TR.Ankara, TR.Ankara.Cankaya] olarak GENİŞLETİLİR (yerel sorgu
+  hem genel hem yerel hükümleri arar). Yerel hüküm bulunursa GENEL +
+  YEREL + varsa ÇATIŞMA/ÖZEL HÜKÜM olarak birlikte sunulur (bkz.
+  ARCHITECTURE.txt bölüm 7, cevap formatı).
+
+  Yeni il/ilçe eklemek şema değişikliği gerektirmez — yalnızca yeni bir
+  jurisdiction düğümü ve o düğüme bağlı Document/Article kayıtları
+  eklenir.
+
+----------------------------------------------------------------
+4. PROJECT (Project Mode)
+----------------------------------------------------------------
+  projectId
+  projectName
+  province / district          -> jurisdiction'a çözümlenir
+  parcelArea
+  kaks (emsal)
+  taks
+  buildingType
+  unitCount
+  commercialArea
+  residentialArea
+  parkingCount
+  accessibleParkingCount
+  evParkingCount
+  storeyCount
+  basementCount
+  createdAt / updatedAt
+
+  Kullanım: "Bu projede emsal durumum ne?" sorulduğunda, sistem önce
+  Project verisini bağlam olarak Query Understanding adımına verir;
+  eksik alan varsa LLM TAHMİN ETMEZ, kullanıcıdan eksik veriyi ister
+  (bkz. RULE_ENGINE.txt bölüm 3).
+
+----------------------------------------------------------------
+5. RULE PACK (bkz. RULE_ENGINE.txt için tam detay)
+----------------------------------------------------------------
+  ruleId
+  jurisdiction
+  version
+  sourceDocument / sourceArticle
+  inputs
+  formula
+  conditions
+  exceptions
+  effectiveFrom / effectiveTo
+
+----------------------------------------------------------------
+6. CALCULATION TRACE
+----------------------------------------------------------------
+  traceId
+  ruleId (+ version)
+  inputs                    (kullanıcı/projeden gelen girdi değerleri)
+  method                    (uygulanan formül/adımlar)
+  result
+  sourceDocument / sourceArticle
+  confidence
+  generatedAt
+
+----------------------------------------------------------------
+7. ANSWER (kullanıcıya dönen cevabın kaydı — audit + "SOURCE VERSION" için)
+----------------------------------------------------------------
+  answerId
+  queryText
+  resolvedContext            (jurisdiction, topics, project ref varsa)
+  retrievedArticleIds[]       (hangi madde/parçalar kanıt olarak kullanıldı)
+  sourceVersions[]             (her kaynağın o andaki version'ı — DONUK,
+                                sonradan mevzuat değişse bile bu kayıt
+                                değişmez; "eski cevap hangi versiyona
+                                dayanıyordu" sorusuna cevap verir)
+  confidenceLevel              HIGH / MEDIUM / LOW / NEEDS_AUTHORITY_REVIEW
+  calculationTraceId           (varsa, Rule Engine kullanıldıysa)
+  createdAt
+
+----------------------------------------------------------------
+8. VERSİYONLAMA İLKESİ (özet — detay UPDATE_ENGINE.txt'te)
+----------------------------------------------------------------
+Bir Document/Article HİÇBİR ZAMAN yerinde (in-place) değiştirilmez.
+Değişiklik = yeni bir Document/Article versiyonu + supersedes/
+supersededBy bağı + eski versiyonun effectiveTo alanının doldurulması.
+Bu, "eski hükmü güncelmiş gibi göstermeme" ve "SOURCE VERSION" izlenebilirliğinin
+temel mekanizmasıdır.

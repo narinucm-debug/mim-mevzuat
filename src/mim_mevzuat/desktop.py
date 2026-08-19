@@ -1,39 +1,40 @@
-"""MİM MEVZUAT - Tek Tıkla Çalışan Masaüstü Giriş Noktası (.exe entrypoint).
+"""MİM MEVZUAT - Gerçek Yerel Masaüstü Uygulaması (Native Desktop Window).
 
-Çift tıklandığında:
-1. Yerel FastAPI sunucusunu arka planda başlatır.
-2. Kullanıcının varsayılan tarayıcısında MİM MEVZUAT arayüzünü otomatik açar.
-3. Çevrimdışı ve tam fonksiyonel olarak çalışır.
+Tarayıcı açmaz; doğrudan bağımsız bir masaüstü penceresi (Native GUI Window) olarak çalışır.
 """
 
 from __future__ import annotations
 
-import os
 import socket
 import sys
 import threading
 import time
-import webbrowser
-
 import uvicorn
+import webview
 
 from mim_mevzuat.web.app import app
 
 
 def _find_free_port(default_port: int = 8000) -> int:
-    """Belirtilen port doluysa bir sonraki boş portu bulur."""
+    """Belirtilen port doluysa boş bir port bulur."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         sock.bind(("127.0.0.1", default_port))
         sock.close()
         return default_port
     except OSError:
-        # Boş bir port ata
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
         sock.close()
         return port
+
+
+def _start_server(port: int):
+    """Uvicorn sunucusunu arka plan iş parçacığında çalıştırır."""
+    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error")
+    server = uvicorn.Server(config)
+    server.run()
 
 
 def main():
@@ -46,23 +47,26 @@ def main():
     port = _find_free_port(8000)
     url = f"http://127.0.0.1:{port}"
 
-    print("=" * 65)
-    print("      MİM MEVZUAT — Mimarlık Mevzuat & Yorumlama Asistanı")
-    print("      Masaüstü Sürümü Başlatılıyor...")
-    print("=" * 65)
-    print(f"\n[+] Yerel Sunucu Adresi: {url}")
-    print("[+] Tarayıcınız otomatik olarak açılıyor...")
-    print("[!] Çıkmak için bu pencereyi kapatabilir veya Ctrl + C yapabilirsiniz.\n")
+    # Arka planda sunucuyu başlat
+    server_thread = threading.Thread(target=_start_server, args=(port,), daemon=True)
+    server_thread.start()
 
-    # Tarayıcıyı 1 saniye sonra aç
-    def open_browser():
-        time.sleep(1.2)
-        webbrowser.open(url)
+    # Sunucunun hazır olması için kısa bir bekleme
+    time.sleep(0.6)
 
-    threading.Thread(target=open_browser, daemon=True).start()
+    # Doğrudan Native Masaüstü Penceresini Oluştur (Tarayıcı gerektirmez)
+    window = webview.create_window(
+        title="MİM MEVZUAT — Mimari Mevzuat & Yorumlama Asistanı",
+        url=url,
+        width=1280,
+        height=860,
+        min_size=(960, 640),
+        text_select=True,
+        confirm_close=False,
+    )
 
-    # Uvicorn sunucusunu ana thread'de çalıştır
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+    # GUI penceresini başlat
+    webview.start(private_mode=False)
 
 
 if __name__ == "__main__":

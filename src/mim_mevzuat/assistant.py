@@ -71,6 +71,79 @@ MADDE 7 – (1) Sığınak Yapılması Zorunlu Binalar: 12 veya daha fazla bağ�
 MADDE 8 – (1) Sığınak Alanı: Sığınak alanı, kişi başına en az 1 m² net alan ve 3 m³ hacim düşecek şekilde projelendirilir.
 """
 
+TBDY_2018_CORE_TEXT = """
+TÜRKİYE BİNA DEPREM YÖNETMELİĞİ (TBDY 2018)
+
+MADDE 1 – (1) Bu Yönetmeliğin amacı; yeni yapılacak veya mevcut binaların deprem etkisi altında tasarımı ve değerlendirilmesine ilişkin kuralları belirlemektir.
+
+MADDE 3 – (1) Deprem Tasarım Sınıfları (DTS): Binalar, bulundukları yerdeki kısa periyot tasarım spektral ivme katsayısı (SDS) ve Bina Kullanım Sınıfına (BKS) bağlı olarak DTS=1, 2, 3, 4 olarak sınıflandırılır.
+(2) Bina Kullanım Sınıfları (BKS):
+a) BKS=1 (I=1.5): Deprem sonrası hemen kullanımı gereken binalar (Hastaneler, itfaiye, afet yönetim merkezleri, okullar, müzeler vb.).
+b) BKS=2 (I=1.2): İnsanların uzun süreli ve yoğun olarak bulunduğu binalar (AVM, spor tesisleri, cezaevleri vb.).
+c) BKS=3 (I=1.0): Konutlar, işyerleri, oteller ve endüstri yapıları.
+
+MADDE 4 – (1) Planda Düzensizlik Durumları (A Tipi):
+a) A1 - Burulma Düzensizliği: Herhangi bir katta en büyük göreli kat telemesi oranının, o kattaki ortalama göreli teleme oranına bölünmesiyle bulunan Burulma Düzensizliği Katsayısı nbi > 1.2 olması durumudur.
+b) A2 - Döşeme Süreksizlikleri: Döşeme boşlukları toplamının kat brüt alanının 1/3'ünden fazla olması veya döşemenin rijitliğini kaybetmesi durumudur.
+c) A3 - Planda Çıkıntılar: Bina kat planlarında çıkıntı yapan kısımların boyutlarının, binanın o yöndeki toplam plan boyutunun %20'sinden büyük olmasıdır.
+
+MADDE 5 – (1) Düşey Doğrultuda Düzensizlik Durumları (B Tipi):
+a) B1 - Komşu Katlar Arası Dayanım Düzensizliği (Zayıf Kat): Betonarme binalarda, birbirine dik iki deprem doğrultusunda, herhangi bir kattaki etkili kesme alanının bir üst kattakine oranının (Dayanım Düzensizliği Katsayısı nci) 0.80'den küçük olması durumudur.
+b) B2 - Komşu Katlar Arası Rijitlik Düzensizliği (Yumuşak Kat): Herhangi bir kattaki ortalama göreli kat telemesi oranının, bir üst veya alt kattakine oranının 2.0'den büyük olması durumudur.
+c) B3 - Düşey Elemanların Süreksizliği: Kolon veya perdelerin katlar arasında süreksiz olması veya kiriş üstüne oturtulması kesinlikle yasaktır.
+
+MADDE 7 – (1) Zemin Sınıfları: Zeminler kayma dalgası hızı (Vs30) ve standart penetrasyon direncine (N60) göre ZA (Sağlam sert kaya), ZB (Az ayrışmış kaya), ZC (Çok sıkı kum/çakıl, sert kil), ZD (Orta sıkı kum, killi kum), ZE (Gevşek kum, yumuşak kil), ZF (Sıvılaşma potansiyeli yüksek, özel zeminler) olarak sınıflandırılır.
+
+MADDE 8 – (1) Betonarme Taşıyıcı Sistemler ve Statik Şartlar:
+a) Kolonların en küçük enkesit boyutu 300 mm'den (30 cm), enkesit alanı 90000 mm²'den az olamaz.
+b) Perdelerde uzun kenarın kalınlığa oranı en az 6 (h/b >= 6) olmalıdır. Perde gövde kalınlığı en az 250 mm (25 cm) olmalıdır.
+c) Boyuna donatı oranı kolonlarda en az %1, en fazla %4 olabilir.
+d) Kolon ve kiriş uçlarında donatı sıklaştırma bölgeleri oluşturulması zorunludur. Etriye kancaları 135 derece bükülmeli ve çirozlar ile sarılmalıdır.
+"""
+
+ENERJI_BEP_CORE_TEXT = """
+BİNALARDA ENERJİ PERFORMANSI YÖNETMELİĞİ (BEP / TS 825)
+
+MADDE 1 – (1) Bu Yönetmeliğin amacı, binalarda enerjinin verimli kullanılmasını, enerji israfının önlenmesini ve çevrenin korunmasını sağlamaktır.
+
+MADDE 10 – (1) Enerji Kimlik Belgesi (EKB): Yeni yapılacak binaların yapı kullanma izin belgesi (iskan) alabilmesi için asgari "C" sınıfı Enerji Kimlik Belgesine sahip olması zorunludur.
+
+MADDE 12 – (1) Binaların dış kabuğu, pencereleri, çatısı ve döşemeleri TS 825 Binalarda Isı Yalıtım Kuralları standardına uygun olarak hesaplanan azami U (ısı geçirgenlik) katsayılarını sağlamak zorundadır.
+
+MADDE 15 – (1) Toplam yapı inşaat alanı 2000 m² ve üzeri olan yeni binalarda, binanın enerji ihtiyacının en az %5'inin yenilenebilir enerji kaynaklarından (güneş enerjisi panelleri, ısı pompası vb.) karşılanması zorunludur (Neredeyse Sıfır Enerjili Binalar - NSEB).
+"""
+
+YAPI_DENETIMI_CORE_TEXT = """
+YAPI DENETİMİ HAKKINDA KANUN VE UYGULAMA YÖNETMELİĞİ (4708)
+
+MADDE 1 – (1) Bu Kanunun amacı; can ve mal güvenliğini teminen, imar planına, fen, sanat ve sağlık kurallarına, standartlara uygun kaliteli yapı inşasını sağlamaktır.
+
+MADDE 2 – (1) Yapı denetim kuruluşları, yapının temelinden çatısına kadar tüm betonarme donatı, kalıp ve beton döküm işlemlerini yerinde denetlemekle yükümlüdür.
+(2) Beton dökümü esnasında laboratuvar teknisyenlerince taze betondan standart küp/silindir numuneleri alınır. Numunelerin 7 ve 28 günlük basınç dayanımı test sonuçları ilgili standartları (C25/30, C30/37 vb.) sağlamak zorundadır.
+
+MADDE 5 – (1) Şantiye şefi, yapının fenni kurallara ve mimari/statik projesine uygun inşa edilmesinden proje müellifleri ve yapı denetim kuruluşu ile birlikte müteselsilen sorumludur.
+"""
+
+SES_SU_YALITIMI_CORE_TEXT = """
+BİNALARDA SES VE SU YALITIMI YÖNETMELİĞİ
+
+MADDE 1 – (1) Binaların temel, bodrum perdeleri, çatılar ve ıslak hacimlerinde suyun yapı elemanlarına ve donatıya zarar vermesini engellemek amacıyla su yalıtımı yapılması zorunludur.
+
+MADDE 6 – (1) Binalarda Gürültüye Karşı Korunma: Bağımsız bölümler arasındaki ortak bölme duvarlarda hava doğuşlu ses yalıtım değeri en az Rw = 53 dB olmalıdır. Kat döşemelerinde darbe sesi yalıtımı şarttır.
+"""
+
+IMAR_KANUNU_3194_CORE_TEXT = """
+3194 SAYILI İMAR KANUNU
+
+MADDE 21 – (1) Yapı Ruhsatiyesi: Bu Kanun kapsamına giren bütün yapılar için ilgili belediye veya valilikten yapı ruhsatiyesi alınması mecburidir.
+
+MADDE 30 – (1) Yapı Kullanma İzni (İskan): Yapı tamamen bittiği takdirde tamamının, kısmen kullanılması mümkün kısımları tamamlandığı takdirde bu kısımlarının kullanılabilmesi için ruhsatı veren idareden yapı kullanma izni alınması mecburidir.
+
+MADDE 32 – (1) Ruhsatsız veya Ruhsata Aykırı Yapılar: Ruhsat alınmadan başlanan veya ruhsata aykırı yapılan yapılar belediye veya valilikçe mühürlenerek inşaat derhal durdurulur. 1 ay içinde aykırılık giderilmezse yapı hakkında yıkım kararı verilir.
+
+MADDE 42 – (1) Ruhsatsız veya projeye aykırı yapı yapanlara, müelliflere ve fenni mesullere imar para cezası uygulanır.
+"""
+
 
 @dataclass
 class ExecutionTrace:
@@ -105,7 +178,7 @@ class MevzuatAssistant:
         self.rule_engine = RuleEngine(self.conn)
 
     def seed_core_regulations(self) -> None:
-        """Çekirdek yönetmelikleri (Otopark, Planlı Alanlar, Yangın, Sığınak) yükler."""
+        """Türkiye'nin tüm temel mimari, statik ve imar mevzuatını yükler."""
         # 1. Otopark Yönetmeliği
         if DEFAULT_OTOPARK_PDF.exists():
             meta_otopark = DocumentMetadata(
@@ -166,6 +239,81 @@ class MevzuatAssistant:
             validity_status="ACTIVE",
         )
         ingest_text(self.conn, meta_siginak, SIGINAK_YONETMELIGI_CORE_TEXT)
+
+        # 5. Türkiye Bina Deprem Yönetmeliği (TBDY 2018) & Statik Esaslar
+        meta_tbdy = DocumentMetadata(
+            document_id="yonetmelik:30364",
+            title="Türkiye Bina Deprem Yönetmeliği (TBDY 2018)",
+            authority="Afet ve Acil Durum Yönetimi Başkanlığı (AFAD)",
+            document_type="yonetmelik",
+            jurisdiction="TR",
+            publication_date="2018-03-18",
+            effective_date="2019-01-01",
+            version="2018.03",
+            source_url="https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=30364&MevzuatTur=7&MevzuatTertip=5",
+            validity_status="ACTIVE",
+        )
+        ingest_text(self.conn, meta_tbdy, TBDY_2018_CORE_TEXT)
+
+        # 6. Binalarda Enerji Performansı (BEP / TS 825)
+        meta_bep = DocumentMetadata(
+            document_id="yonetmelik:27075",
+            title="Binalarda Enerji Performansı Yönetmeliği (BEP / TS 825)",
+            authority="Çevre, Şehircilik ve İklim Değişikliği Bakanlığı",
+            document_type="yonetmelik",
+            jurisdiction="TR",
+            publication_date="2008-12-05",
+            effective_date="2009-12-05",
+            version="2024.02",
+            source_url="https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=27075&MevzuatTur=7&MevzuatTertip=5",
+            validity_status="ACTIVE",
+        )
+        ingest_text(self.conn, meta_bep, ENERJI_BEP_CORE_TEXT)
+
+        # 7. Yapı Denetimi Uygulama Yönetmeliği (4708)
+        meta_yapi_denetim = DocumentMetadata(
+            document_id="kanun:4708",
+            title="Yapı Denetimi Uygulama Yönetmeliği ve Kanunu (4708)",
+            authority="Çevre, Şehircilik ve İklim Değişikliği Bakanlığı",
+            document_type="kanun",
+            jurisdiction="TR",
+            publication_date="2001-07-13",
+            effective_date="2001-07-13",
+            version="2025.01",
+            source_url="https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=4708&MevzuatTur=1&MevzuatTertip=5",
+            validity_status="ACTIVE",
+        )
+        ingest_text(self.conn, meta_yapi_denetim, YAPI_DENETIMI_CORE_TEXT)
+
+        # 8. Binalarda Ses ve Su Yalıtımı Yönetmeliği
+        meta_yalitim = DocumentMetadata(
+            document_id="yonetmelik:30082",
+            title="Binalarda Ses ve Su Yalıtımı Yönetmeliği",
+            authority="Çevre, Şehircilik ve İklim Değişikliği Bakanlığı",
+            document_type="yonetmelik",
+            jurisdiction="TR",
+            publication_date="2017-05-31",
+            effective_date="2018-06-01",
+            version="2023.05",
+            source_url="https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=30082&MevzuatTur=7&MevzuatTertip=5",
+            validity_status="ACTIVE",
+        )
+        ingest_text(self.conn, meta_yalitim, SES_SU_YALITIMI_CORE_TEXT)
+
+        # 9. 3194 Sayılı İmar Kanunu
+        meta_imar_kanunu = DocumentMetadata(
+            document_id="kanun:3194",
+            title="3194 Sayılı İmar Kanunu",
+            authority="Türkiye Büyük Millet Meclisi (TBMM)",
+            document_type="kanun",
+            jurisdiction="TR",
+            publication_date="1985-05-09",
+            effective_date="1985-11-09",
+            version="2026.01",
+            source_url="https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=3194&MevzuatTur=1&MevzuatTertip=5",
+            validity_status="ACTIVE",
+        )
+        ingest_text(self.conn, meta_imar_kanunu, IMAR_KANUNU_3194_CORE_TEXT)
 
     def ask(
         self,

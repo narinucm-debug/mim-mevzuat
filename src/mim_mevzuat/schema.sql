@@ -42,30 +42,8 @@ CREATE TABLE IF NOT EXISTS article (
 CREATE INDEX IF NOT EXISTS idx_article_document ON article (document_id);
 CREATE INDEX IF NOT EXISTS idx_article_jurisdiction ON article (jurisdiction);
 
--- BM25 tam metin arama - RAG_DESIGN.txt bolum 1. Bagimsiz bir FTS5
--- tablosu (content= linkage kullanilmadi cunku article_id TEXT PK'dir,
--- rowid tabanli linkage gereksiz karmasiklik katardi); article ile
--- senkron trigger'larla tutulur.
-CREATE VIRTUAL TABLE IF NOT EXISTS article_fts USING fts5 (
-    article_id UNINDEXED,
-    document_id UNINDEXED,
-    text
-);
-
-CREATE TRIGGER IF NOT EXISTS article_fts_ai AFTER INSERT ON article BEGIN
-    INSERT INTO article_fts (article_id, document_id, text)
-    VALUES (new.article_id, new.document_id, new.text);
-END;
-
-CREATE TRIGGER IF NOT EXISTS article_fts_ad AFTER DELETE ON article BEGIN
-    DELETE FROM article_fts WHERE article_id = old.article_id;
-END;
-
-CREATE TRIGGER IF NOT EXISTS article_fts_au AFTER UPDATE ON article BEGIN
-    DELETE FROM article_fts WHERE article_id = old.article_id;
-    INSERT INTO article_fts (article_id, document_id, text)
-    VALUES (new.article_id, new.document_id, new.text);
-END;
+-- BM25 tam metin arama: bkz. schema_fts5.sql (bilerek ayrı dosya -
+-- bazı SQLite derlemelerinde FTS5 modülü bulunmayabilir, bkz. db.py).
 
 -- Project Mode - DATA_MODEL.txt bolum 4
 CREATE TABLE IF NOT EXISTS project (

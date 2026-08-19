@@ -18,6 +18,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from typing import Optional
 
+from .db import has_fts5
 from .models import Evidence
 
 TURKISH_STOPWORDS = {
@@ -80,6 +81,12 @@ def _clean_fts_query(query: str) -> str:
 class RetrievalEngine:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
+        # FTS5'in bu SQLite derlemesinde mevcut olup olmadığı BİR KERE
+        # tespit edilir (ör. Chaquopy/Android'de FTS5 modülü YOK - bkz.
+        # db.py). Yoksa aşağıdaki basit filtre + terim eşleştirme
+        # yoluna düşülür; sistem çökmez, yalnızca sıralama BM25 yerine
+        # basit terim kapsama sayısına dayanır.
+        self.fts_available = has_fts5(conn)
 
     def retrieve(
         self,
@@ -107,7 +114,9 @@ class RetrievalEngine:
 
         params: list[any] = []
 
-        if fts_query:
+        use_fts = self.fts_available and bool(fts_query)
+
+        if use_fts:
             sql = f"""
             SELECT
                 a.article_id,
@@ -168,12 +177,16 @@ class RetrievalEngine:
             params.append(target_art.strip())
 
         # Sıralama: BM25 skoru (FTS5'te küçük/negatif değerler daha iyi eşleşmedir)
-        if fts_query:
+        if use_fts:
             sql += " ORDER BY rank_score ASC"
         else:
             sql += " ORDER BY a.article_id ASC"
 
-        sql += f" LIMIT {filters.limit * 2}"  # Post-filter için biraz fazla çek
+        if use_fts:
+            sql += f" LIMIT {filters.limit * 2}"  # Post-filter için biraz fazla çek
+        # FTS5 yoksa LIMIT SQL seviyesinde uygulanmaz: article_id sırasına
+        # göre kesip alakalı maddeleri kaçırmamak için tüm adaylar Python
+        # tarafında puanlanıp sıralanır (küçük corpus'ta bu ucuzdur).
 
         cursor = self.conn.cursor()
         try:
@@ -186,10 +199,11 @@ class RetrievalEngine:
         if specific_article_target and not rows:
             return []
 
-        evidence_list: list[Evidence] = []
+        scored: list[tuple[float, Evidence]] = []
         for r in rows:
             text_low = r["text"].lower()
             art_low = r["article"].lower()
+            matched_count = 0
 
             # Term coverage kontrolü:
             # Çok kelimeli sorgularda en az bir anahtar kelimenin gerçekten metinde
@@ -210,20 +224,25 @@ class RetrievalEngine:
                         continue
 
             score = float(r["rank_score"]) if "rank_score" in r.keys() else 0.0
-            evidence_list.append(
-                Evidence(
-                    document_id=r["document_id"],
-                    article=r["article"],
-                    paragraph=r["paragraph"],
-                    subparagraph=r["subparagraph"],
-                    text=r["text"],
-                    source_url=r["source_url"],
-                    version=r["version"],
-                    jurisdiction=r["jurisdiction"],
-                    retrieval_score=score,
-                )
+            evidence = Evidence(
+                document_id=r["document_id"],
+                article=r["article"],
+                paragraph=r["paragraph"],
+                subparagraph=r["subparagraph"],
+                text=r["text"],
+                source_url=r["source_url"],
+                version=r["version"],
+                jurisdiction=r["jurisdiction"],
+                retrieval_score=score,
             )
-            if len(evidence_list) >= filters.limit:
+            # FTS yokken siralama anahtari: daha fazla eslesen terim once gelsin
+            # (SQL'deki bm25 ASC sirasinin yerini tutar - kucuk = iyi, o yuzden negatif).
+            sort_key = score if use_fts else -matched_count
+            scored.append((sort_key, evidence))
+            if use_fts and len(scored) >= filters.limit:
                 break
 
-        return evidence_list
+        if not use_fts:
+            scored.sort(key=lambda pair: pair[0])
+
+        return [evidence for _, evidence in scored[: filters.limit]]

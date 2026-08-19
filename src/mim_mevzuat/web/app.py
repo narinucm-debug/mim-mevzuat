@@ -18,11 +18,12 @@ from pydantic import BaseModel
 from ..assistant import MevzuatAssistant
 from ..ingestion.pipeline import DocumentMetadata, ingest_text
 from ..interpreter import interpret_calculation
+from ..update_engine.auto_updater import AutoUpdater
 
 app = FastAPI(
     title="MİM MEVZUAT",
     description="Türkiye Mimari Mevzuat & Yorumlama Asistanı",
-    version="0.0.2",
+    version="0.0.3",
 )
 
 app.add_middleware(
@@ -34,6 +35,7 @@ app.add_middleware(
 )
 
 assistant = MevzuatAssistant()
+updater = AutoUpdater(assistant.conn, auto_start=True)
 
 
 class AskRequest(BaseModel):
@@ -204,6 +206,19 @@ def api_get_documents():
             }
         )
     return {"documents": docs}
+
+
+@app.get("/api/updates/status")
+def api_update_status():
+    """Otomatik güncelleme motorunun canlı durumunu döner."""
+    return updater.get_status()
+
+
+@app.post("/api/updates/sync")
+def api_trigger_update_sync():
+    """Canlı güncelleme kontrolünü anında tetikler."""
+    res = updater.run_update_check()
+    return res
 
 
 # Web Arayüzü HTML Sayfası (Single Page App)

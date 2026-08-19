@@ -133,3 +133,14 @@ CREATE TABLE IF NOT EXISTS answer (
     calculation_trace_id   TEXT REFERENCES calculation_trace (trace_id),
     created_at              TEXT NOT NULL
 );
+
+-- Auto Update Logs - Canli Otomatik Guncelleme Gunlugu
+CREATE TABLE IF NOT EXISTS update_log (
+    log_id             TEXT PRIMARY KEY,
+    checked_at         TEXT NOT NULL,
+    source             TEXT NOT NULL,
+    status             TEXT NOT NULL,
+    changes_detected   INTEGER DEFAULT 0,
+    details_json       TEXT
+);
+

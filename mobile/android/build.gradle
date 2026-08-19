@@ -8,9 +8,8 @@ buildscript {
     }
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
+// Proje seviyesi repository'ler settings.gradle'daki
+// dependencyResolutionManagement bloğunda merkezi olarak tanımlı
+// (FAIL_ON_PROJECT_REPOS) - burada tekrar tanımlamak Gradle'ı
+// "InvalidUserCodeException: prefer settings repositories" hatasıyla
+// durdurur.

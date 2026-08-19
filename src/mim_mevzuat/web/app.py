@@ -474,6 +474,47 @@ INDEX_HTML = """<!DOCTYPE html>
             transform: translateY(-1px);
         }
 
+        .btn-apk {
+            background: rgba(56, 189, 248, 0.15);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            color: var(--accent-blue);
+            padding: 0.45rem 0.9rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            transition: all 0.2s ease;
+        }
+        .btn-apk:hover {
+            background: rgba(56, 189, 248, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .modal-card {
+            background: #111827;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            max-width: 650px;
+            width: 100%;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            animation: slideUp 0.25s ease;
+        }
+
         .update-toast {
             position: fixed;
             bottom: 24px;
@@ -518,6 +559,10 @@ INDEX_HTML = """<!DOCTYPE html>
                 <span class="badge-phase">NLU + Yorumlama Aktif</span>
             </div>
             <div style="display: flex; align-items: center; gap: 0.85rem;">
+                <button id="btn-header-apk" class="btn-apk" onclick="openApkModal()" title="Android APK ve Mobil Sürüm İndir">
+                    <span>📱</span>
+                    <span>Android APK</span>
+                </button>
                 <button id="btn-header-sync" class="btn-sync" onclick="triggerManualUpdate()" title="Resmî Gazete ve mevzuat.gov.tr değişikliklerini anında denetler">
                     <span id="sync-icon">🔄</span>
                     <span id="sync-text">Mevzuatı Güncelle</span>
@@ -531,6 +576,59 @@ INDEX_HTML = """<!DOCTYPE html>
             </div>
         </div>
     </header>
+
+    <!-- APK & MOBIL MODAL -->
+    <div id="apk-modal" class="modal-backdrop" style="display: none;" onclick="if(event.target===this) closeApkModal()">
+        <div class="modal-card">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                    <span style="font-size: 1.6rem;">📱</span>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.1rem; color: #fff;">MİM MEVZUAT — Android APK & Mobil Sürüm</h3>
+                        <p style="margin: 0; font-size: 0.75rem; color: var(--text-muted);">81 İl, Deprem, Statik, Neufert ve Otopark cebinizde</p>
+                    </div>
+                </div>
+                <button onclick="closeApkModal()" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.25rem; cursor: pointer;">✕</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+                <!-- Yöntem 1: PWA Telefondan Anında Yükle -->
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem;">
+                    <h4 style="margin: 0 0 0.5rem 0; color: var(--accent-emerald); font-size: 0.9rem;">1. Telefondan Anında Kur (PWA)</h4>
+                    <p style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4; margin-bottom: 0.75rem;">
+                        Telefonunuzdan (Chrome / Safari) açıp <strong>"Ana Ekrana Ekle"</strong> diyerek APK gibi tam ekran yükleyin.
+                    </p>
+                    <div style="background: #0B0F19; border-radius: 6px; padding: 0.5rem; text-align: center;">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=https://github.com/narinucm-debug/mim-mevzuat" alt="QR Kod" style="width: 110px; height: 110px; border-radius: 4px; display: inline-block;">
+                        <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.35rem;">Kameranızla okutun</div>
+                    </div>
+                </div>
+
+                <!-- Yöntem 2: Doğrudan .APK Dosyası İndir -->
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <h4 style="margin: 0 0 0.5rem 0; color: var(--accent-blue); font-size: 0.9rem;">2. Doğrudan .APK İndir</h4>
+                        <p style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4; margin-bottom: 0.75rem;">
+                            GitHub bulut sunucuları tarafından derlenen resmi Android paketini indirin.
+                        </p>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <a href="https://github.com/narinucm-debug/mim-mevzuat/actions" target="_blank" class="btn-primary" style="text-align: center; text-decoration: none; font-size: 0.8rem; padding: 0.55rem;">
+                            ⬇️ GitHub'dan APK İndir
+                        </a>
+                        <a href="https://www.pwabuilder.com" target="_blank" class="quick-btn" style="text-align: center; text-decoration: none; font-size: 0.75rem; padding: 0.45rem;">
+                            ⚡ PWABuilder ile İndir
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div style="border-top: 1px solid var(--border-color); padding-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.75rem; color: var(--text-muted);">📂 Android Kaynak Kodu: <code>mobile/android/</code></span>
+                <button onclick="closeApkModal()" class="quick-btn">Kapat</button>
+            </div>
+        </div>
+    </div>
 
     <!-- TOAST NOTIFICATION -->
     <div id="update-toast" class="update-toast" style="display: none;">
@@ -1030,6 +1128,14 @@ INDEX_HTML = """<!DOCTYPE html>
 
         function closeToast() {
             document.getElementById('update-toast').style.display = 'none';
+        }
+
+        function openApkModal() {
+            document.getElementById('apk-modal').style.display = 'flex';
+        }
+
+        function closeApkModal() {
+            document.getElementById('apk-modal').style.display = 'none';
         }
     </script>
 </body>

@@ -20,8 +20,15 @@ import com.chaquo.python.Python;
 import com.chaquo.python.android.AndroidPlatform;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.KeyStore;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 
 /**
  * MİM MEVZUAT - tamamen cihaz-içi (internetsiz) çalışan native Android
@@ -98,6 +105,11 @@ public class MainActivity extends Activity {
         questionInput.setHint("Mevzuata bir şey sor...");
         questionInput.setHintTextColor(Color.parseColor("#64748B"));
         questionInput.setTextColor(Color.WHITE);
+        // ÖNEMLİ: EditText'in kendi varsayılan (açık renk) arka planı
+        // ezilmezse metin (beyaz) görünmez oluyordu - 2026-08-19 kullanıcı
+        // raporu. Arka planı da açıkça koyu yapıyoruz.
+        questionInput.setBackgroundColor(Color.parseColor("#1E293B"));
+        questionInput.setPadding(dp(12), dp(10), dp(12), dp(10));
         questionInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         LinearLayout.LayoutParams inputParams =
                 new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
@@ -185,12 +197,24 @@ public class MainActivity extends Activity {
     }
 
     /** mevzuat.gov.tr'ye gerçek bir HTTP isteğiyle erişilebilirlik kontrolü.
-     * Tarayıcı benzeri User-Agent gerekli - bkz. SOURCE_MAP.txt "Doğrulama
-     * Notu": bu site tarayıcı olmayan isteklere yanıt vermeyebiliyor. */
+     * İKİ ayrı düzeltme gerekiyor - ikisi de SOURCE_MAP.txt "Doğrulama
+     * Notu"nda (Python/http_client.py için) belgelenen kök nedenlerin
+     * Android/Java tarafındaki karşılığı:
+     *  1. Tarayıcı benzeri User-Agent (yoksa istek sessizce düşüyor).
+     *  2. mevzuat.gov.tr TLS el sıkışmasında ara sertifikayı (GeoTrust
+     *     TLS RSA CA G1) göndermiyor - Android'in varsayılan güven
+     *     deposu bunu otomatik tamamlamıyor, bu yüzden SSLHandshakeException
+     *     alınıyordu (IOException'ın alt sınıfı olduğu için sessizce
+     *     "bağlantı yok" gibi yorumlanıyordu - "Güncelle çalışmıyor"
+     *     şikayetinin gerçek nedeni buydu). assets/geotrust_tls_rsa_ca_g1.pem
+     *     güven deposuna eklenerek çözülüyor - verify=False YOLUNA
+     *     GİDİLMEDİ, sertifika doğrulaması tam olarak çalışmaya devam
+     *     ediyor. */
     private boolean isMevzuatGovTrReachable() {
         try {
             URL url = new URL("https://www.mevzuat.gov.tr/");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+            conn.setSSLSocketFactory(buildMevzuatGovTrSslContext().getSocketFactory());
             conn.setRequestProperty(
                     "User-Agent",
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -201,9 +225,43 @@ public class MainActivity extends Activity {
             int code = conn.getResponseCode();
             conn.disconnect();
             return code >= 200 && code < 400;
-        } catch (IOException e) {
+        } catch (Exception e) {
             return false;
         }
+    }
+
+    /** Sistemin varsayılan güvenilir sertifikalarına, mevzuat.gov.tr'nin
+     * eksik gönderdiği ara sertifikayı EKLEYEN bir SSLContext döner. */
+    private SSLContext buildMevzuatGovTrSslContext() throws Exception {
+        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+        Certificate extraCa;
+        try (InputStream in = getAssets().open("geotrust_tls_rsa_ca_g1.pem")) {
+            extraCa = cf.generateCertificate(in);
+        }
+
+        // Sistemin varsayılan güvenilir CA'larını yükle (AndroidCAStore)
+        KeyStore systemStore = KeyStore.getInstance("AndroidCAStore");
+        systemStore.load(null, null);
+
+        // Ayrı bir KeyStore'a hem sistem CA'larını hem de eksik ara
+        // sertifikayı koy - böylece diğer HTTPS sitelerine güven ZARAR
+        // GÖRMEZ, yalnızca bu bağlantı için ek bir güven çıpası eklenir.
+        KeyStore combined = KeyStore.getInstance(KeyStore.getDefaultType());
+        combined.load(null, null);
+        int i = 0;
+        java.util.Enumeration<String> aliases = systemStore.aliases();
+        while (aliases.hasMoreElements()) {
+            String alias = aliases.nextElement();
+            combined.setCertificateEntry(alias, systemStore.getCertificate(alias));
+        }
+        combined.setCertificateEntry("mevzuat-gov-tr-intermediate", extraCa);
+
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        tmf.init(combined);
+
+        SSLContext context = SSLContext.getInstance("TLS");
+        context.init(null, tmf.getTrustManagers(), null);
+        return context;
     }
 
     private int dp(int value) {

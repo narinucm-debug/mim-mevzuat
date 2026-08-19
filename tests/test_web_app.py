@@ -25,6 +25,28 @@ def test_api_documents_endpoint():
     assert any("Planlı Alanlar" in t for t in titles)
 
 
+def test_api_jurisdictions_returns_all_81_provinces():
+    response = client.get("/api/jurisdictions")
+    assert response.status_code == 200
+    data = response.json()
+    assert "provinces" in data
+    assert len(data["provinces"]) == 81
+    # Adana 01, Ankara 06, Istanbul 34, Duzce 81
+    names = [p["name"] for p in data["provinces"]]
+    assert "Adana" in names
+    assert "Ankara" in names
+    assert "İstanbul" in names
+    assert "İzmir" in names
+    assert "Konya" in names
+    assert "Muğla" in names
+    assert "Trabzon" in names
+    assert "Düzce" in names
+
+    # Toplam ilçe sayısı
+    total_districts = sum(len(p["districts"]) for p in data["provinces"])
+    assert total_districts >= 900
+
+
 def test_api_ask_endpoint_valid_question():
     response = client.post(
         "/api/ask",

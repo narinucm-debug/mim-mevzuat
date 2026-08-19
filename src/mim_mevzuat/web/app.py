@@ -476,11 +476,8 @@ INDEX_HTML = """<!DOCTYPE html>
                 <div style="display: flex; flex-direction: column; gap: 0.85rem;">
                     <div style="display: flex; align-items: center; gap: 0.75rem;">
                         <label class="quick-label">Konum / Kapsam:</label>
-                        <select id="jurisdiction-select" class="select-input">
-                            <option value="TR">🇹🇷 Türkiye Geneli (Otomatik İlçe Tespiti)</option>
-                            <option value="TR.Ankara.Cankaya">📍 Ankara / Çankaya</option>
-                            <option value="TR.Ankara.Mamak">📍 Ankara / Mamak</option>
-                            <option value="TR.Antalya.Finike">📍 Antalya / Finike</option>
+                        <select id="jurisdiction-select" class="select-input" style="max-width: 450px;">
+                            <option value="TR">🇹🇷 Türkiye Geneli (Otomatik İl / İlçe Tespiti)</option>
                         </select>
                     </div>
 
@@ -659,6 +656,44 @@ INDEX_HTML = """<!DOCTYPE html>
     </footer>
 
     <script>
+        async function loadJurisdictions() {
+            try {
+                const res = await fetch('/api/jurisdictions');
+                const data = await res.json();
+                const select = document.getElementById('jurisdiction-select');
+                select.innerHTML = '<option value="TR">🇹🇷 Türkiye Geneli (Otomatik İl / İlçe Tespiti)</option>';
+
+                data.provinces.forEach(p => {
+                    const group = document.createElement('optgroup');
+                    const plate = String(p.plate_code).padStart(2, '0');
+                    group.label = `${plate} - ${p.name.toUpperCase()}` + (p.is_metropolitan ? ' (Büyükşehir)' : '');
+
+                    // İl geneli seçeneği
+                    const provOpt = document.createElement('option');
+                    provOpt.value = `TR.${p.code}`;
+                    provOpt.innerText = `🏛️ ${p.name} (İl Geneli)`;
+                    group.appendChild(provOpt);
+
+                    // İlçeler
+                    p.districts.forEach(d => {
+                        const opt = document.createElement('option');
+                        opt.value = `TR.${p.code}.${d.code}`;
+                        opt.innerText = `📍 ${p.name} / ${d.name}`;
+                        group.appendChild(opt);
+                    });
+
+                    select.appendChild(group);
+                });
+            } catch (err) {
+                console.error('Jurisdictions yuklenemedi:', err);
+            }
+        }
+
+        // Sayfa acildiginda 81 ili yukle
+        document.addEventListener('DOMContentLoaded', () => {
+            loadJurisdictions();
+        });
+
         function switchTab(tabId) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));

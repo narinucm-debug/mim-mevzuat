@@ -144,6 +144,44 @@ MADDE 32 – (1) Ruhsatsız veya Ruhsata Aykırı Yapılar: Ruhsat alınmadan ba
 MADDE 42 – (1) Ruhsatsız veya projeye aykırı yapı yapanlara, müelliflere ve fenni mesullere imar para cezası uygulanır.
 """
 
+NEUFERT_STANDARDS_CORE_TEXT = """
+ERNST NEUFERT YAPI TASARIMI & MİMARİ STANDARTLAR KÜTÜPHANESİ
+
+MADDE 1 – (1) İnsan Ölçüleri ve Ergonomi:
+a) Ayaktaki insan vücut genişliği: 60 cm, omuz genişliği: 50-55 cm, iki kişinin yan yana yürüme genişliği: en az 120-130 cm'dir.
+b) Masa başı oturma derinliği: en az 75-80 cm, sandalye çekme ve arkasından geçiş mesafesi: en az 90-100 cm'dir.
+c) Tekerlekli sandalye 360 derece tam dönüş çapı: en az 150 cm (1.50 m) olmalıdır.
+
+MADDE 2 – (1) Konut Mekân Boyutları ve Asgari Alanlar:
+a) Salon / Yaşam Alanı: Asgari alan 18-20 m², dar kenar en az 3.20 m olmalıdır.
+b) Ebeveyn Yatak Odası: Çift kişilik yatak, gardırop ve sirkülasyon dahil asgari 12-14 m², dar kenar en az 2.80-3.00 m olmalıdır.
+c) Çocuk / Çalışma Odası: Tek kişilik yatak, çalışma masası ve dolap dahil asgari 8-10 m², dar kenar en az 2.50 m olmalıdır.
+d) Mutfak: Asgari 6-8 m², tezgah derinliği 60 cm, tezgah yüksekliği 85-90 cm, karşılıklı iki tezgah veya dolap arası sirkülasyon en az 120 cm olmalıdır.
+e) Banyo / WC: Sadece klozet+lavabo en az 1.50 m²; duş+klozet+lavabo+çamaşır makinesi tam banyo en az 4.50-5.50 m² olmalıdır.
+
+MADDE 3 – (1) Merdiven ve Rampa Standartları (Neufert Adım Formülü):
+a) Adım Güvenlik Formülü: 2s + a = 62 ila 64 cm (s: rıht yüksekliği, a: basamak basma genişliği).
+b) Konut İçi Merdivenler: Rıht yüksekliği s <= 17-18 cm, basamak genişliği a >= 28-30 cm, merdiven kol genişliği en az 100-120 cm olmalıdır.
+c) Kamusal ve Ticari Merdivenler: Rıht yüksekliği s <= 15-16 cm, basamak genişliği a >= 30-32 cm, kol genişliği en az 150-180 cm olmalıdır.
+d) Engelli Rampaları: Maksimum eğim %5 ila %6 (kısa mesafede azami %8), rampa genişliği en az 100-120 cm, her 9 metrede bir 150x150 cm dinlenme sahanlığı olmalıdır.
+
+MADDE 4 – (1) Kapı ve Koridor Ölçüleri:
+a) Oda Kapıları: Net geçiş genişliği en az 80 cm, kanat yüksekliği 205-210 cm.
+b) Daire Giriş Kapıları: Net geçiş genişliği en az 90-100 cm, kanat yüksekliği 210 cm.
+c) Islak Hacim Kapıları (Banyo/WC): Net geçiş en az 70-80 cm.
+d) Koridor Genişlikleri: Konut içi koridorlar en az 110-120 cm, ortak kat holleri en az 140-160 cm, kamusal koridorlar en az 180-240 cm olmalıdır.
+
+MADDE 5 – (1) Otopark ve Garaj Boyutları:
+a) Binek Araç Park Yeri: 2.50 m x 5.00 m (Engelli aracı için 3.50 m x 5.00 m).
+b) 90 Derece Dik Park Manevra Yolu: İki araç sırası arası koridor genişliği en az 6.00 m olmalıdır.
+c) 45-60 Derece Açılı Park Yolu: Tek yönlü manevra yolu genişliği 3.50 - 4.50 m olmalıdır.
+d) Kapalı Garaj Net Tavan Yüksekliği: En az 2.20 m - 2.40 m.
+
+MADDE 6 – (1) Doğal Aydınlatma ve Havalandırma:
+a) Yaşam mekanlarında (salon, yatak odası, çalışma odası) net pencere cam alanı, oda net taban alanının en az 1/10'u (yüzde 10) ile 1/8'i (yüzde 12.5) arasında olmalıdır.
+b) Mutfak ve banyolarda doğrudan dışa açılan pencere veya asgari 0.20 m² kesitli havalandırma bacası/şaftı zorunludur.
+"""
+
 
 @dataclass
 class ExecutionTrace:
@@ -314,6 +352,21 @@ class MevzuatAssistant:
             validity_status="ACTIVE",
         )
         ingest_text(self.conn, meta_imar_kanunu, IMAR_KANUNU_3194_CORE_TEXT)
+
+        # 10. Ernst Neufert Yapı Tasarımı & Mimari Standartlar
+        meta_neufert = DocumentMetadata(
+            document_id="standart:neufert",
+            title="Ernst Neufert Yapı Tasarımı & Mimari Standartlar",
+            authority="Uluslararası Mimarlık & Ergonomi Standartları Enstitüsü",
+            document_type="standart",
+            jurisdiction="TR",
+            publication_date="2024-01-01",
+            effective_date="2024-01-01",
+            version="42.Baskı",
+            source_url="https://www.mevzuat.gov.tr/standart/neufert-yapi-tasarimi",
+            validity_status="ACTIVE",
+        )
+        ingest_text(self.conn, meta_neufert, NEUFERT_STANDARDS_CORE_TEXT)
 
     def ask(
         self,

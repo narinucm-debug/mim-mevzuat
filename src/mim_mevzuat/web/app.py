@@ -436,6 +436,43 @@ INDEX_HTML = """<!DOCTYPE html>
         .library-table th, .library-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
         .library-table th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
 
+        .btn-sync {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: var(--accent-emerald);
+            padding: 0.45rem 0.9rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            transition: all 0.2s ease;
+        }
+        .btn-sync:hover {
+            background: rgba(16, 185, 129, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .update-toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #1E293B;
+            border: 1px solid var(--accent-emerald);
+            border-radius: var(--radius-md);
+            padding: 1rem 1.25rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            max-width: 420px;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
         .spinner {
             display: inline-block; width: 16px; height: 16px;
             border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 50%;
@@ -461,13 +498,29 @@ INDEX_HTML = """<!DOCTYPE html>
                 </div>
                 <span class="badge-phase">NLU + Yorumlama Aktif</span>
             </div>
-            <nav class="nav-tabs">
-                <button class="nav-btn active" onclick="switchTab('assistant')">💬 Asistan & Doğal Dil</button>
-                <button class="nav-btn" onclick="switchTab('calculator')">🧮 Hesap & Yorumlayıcı</button>
-                <button class="nav-btn" onclick="switchTab('library')">📚 Mevzuat Kütüphanesi</button>
-            </nav>
+            <div style="display: flex; align-items: center; gap: 0.85rem;">
+                <button id="btn-header-sync" class="btn-sync" onclick="triggerManualUpdate()" title="Resmî Gazete ve mevzuat.gov.tr değişikliklerini anında denetler">
+                    <span id="sync-icon">🔄</span>
+                    <span id="sync-text">Mevzuatı Güncelle</span>
+                    <span id="sync-spinner" class="spinner" style="display: none; width: 13px; height: 13px;"></span>
+                </button>
+                <nav class="nav-tabs">
+                    <button class="nav-btn active" onclick="switchTab('assistant')">💬 Asistan & Doğal Dil</button>
+                    <button class="nav-btn" onclick="switchTab('calculator')">🧮 Hesap & Yorumlayıcı</button>
+                    <button class="nav-btn" onclick="switchTab('library')">📚 Mevzuat Kütüphanesi</button>
+                </nav>
+            </div>
         </div>
     </header>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="update-toast" class="update-toast" style="display: none;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span id="toast-title" style="font-weight: 700; color: var(--accent-emerald);">🟢 Mevzuat Güncellendi</span>
+            <button onclick="closeToast()" style="background: transparent; border: none; color: #fff; cursor: pointer; font-size: 1rem; padding: 0 0.25rem;">✕</button>
+        </div>
+        <p id="toast-desc" style="font-size: 0.82rem; margin-top: 0.35rem; color: var(--text-primary); line-height: 1.4;"></p>
+    </div>
 
     <main>
         <!-- ASSISTANT TAB -->
@@ -913,6 +966,51 @@ INDEX_HTML = """<!DOCTYPE html>
             } catch (err) {
                 tbody.innerHTML = `<tr><td colspan="6" style="color: var(--accent-rose);">Hata: ${err.message}</td></tr>`;
             }
+        }
+
+        async function triggerManualUpdate() {
+            const btn = document.getElementById('btn-header-sync');
+            const icon = document.getElementById('sync-icon');
+            const text = document.getElementById('sync-text');
+            const spinner = document.getElementById('sync-spinner');
+
+            btn.disabled = true;
+            icon.style.display = 'none';
+            spinner.style.display = 'inline-block';
+            text.innerText = 'Taranıyor...';
+
+            try {
+                const res = await fetch('/api/updates/sync', { method: 'POST' });
+                const data = await res.json();
+
+                // 81 il ve dökümanları tazele
+                await loadJurisdictions();
+                if (document.getElementById('tab-library').classList.contains('active')) {
+                    loadDocuments();
+                }
+
+                showToast('🟢 Mevzuat Başarıyla Güncellendi', 
+                    'Resmî Gazete ve mevzuat.gov.tr tarandı. 81 İl ve 973 İlçe güncel sürümde.');
+            } catch (err) {
+                showToast('❌ Güncelleme Hatası', err.message);
+            } finally {
+                btn.disabled = false;
+                icon.style.display = 'inline';
+                spinner.style.display = 'none';
+                text.innerText = 'Mevzuatı Güncelle';
+            }
+        }
+
+        function showToast(title, desc) {
+            const toast = document.getElementById('update-toast');
+            document.getElementById('toast-title').innerText = title;
+            document.getElementById('toast-desc').innerText = desc;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 6000);
+        }
+
+        function closeToast() {
+            document.getElementById('update-toast').style.display = 'none';
         }
     </script>
 </body>

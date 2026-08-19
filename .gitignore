@@ -9,4 +9,5 @@ dist/
 build/
 *.spec
 .env
+cloudflared.exe
 

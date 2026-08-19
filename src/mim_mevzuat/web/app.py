@@ -237,17 +237,85 @@ def api_trigger_update_sync():
     return res
 
 
+SW_JS = """
+const CACHE_NAME = 'mim-mevzuat-v1';
+const ASSETS = [
+    '/',
+    '/manifest.json',
+    '/api/jurisdictions',
+    '/api/documents'
+];
+
+self.addEventListener('install', event => {
+    event.waitUntil(
+        caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    );
+});
+
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys().then(keys => Promise.all(
+            keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+        )).then(() => self.clients.claim())
+    );
+});
+
+self.addEventListener('fetch', event => {
+    event.respondWith(
+        fetch(event.request).catch(() => caches.match(event.request))
+    );
+});
+"""
+
+ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="100" fill="#0B0F19"/>
+  <rect x="20" y="20" width="472" height="472" rx="80" fill="none" stroke="#38BDF8" stroke-width="12"/>
+  <path d="M120 380 L120 140 L256 280 L392 140 L392 380" fill="none" stroke="#38BDF8" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>"""
+
+
+@app.get("/sw.js")
+def api_service_worker():
+    """PWA Service Worker dosyası."""
+    return Response(content=SW_JS, media_type="application/javascript")
+
+
+@app.get("/icon-192.svg")
+@app.get("/icon-512.svg")
+def api_icon():
+    """PWA uygulama ikonu."""
+    return Response(content=ICON_SVG, media_type="image/svg+xml")
+
+
 @app.get("/manifest.json")
 def api_manifest():
-    """Mobil cihazlar için PWA Manifest dosyası."""
+    """PWABuilder ve Mobil cihazlar için tam uyumlu PWA Manifest dosyası."""
     return {
-        "name": "MİM MEVZUAT — Mimari Mevzuat Asistanı",
+        "id": "com.mimmevzuat.app",
+        "name": "MİM MEVZUAT — Mimari Mevzuat & Yorumlama Asistanı",
         "short_name": "MİM Mevzuat",
+        "description": "81 İl ve 973 İlçe Mimari Mevzuat, TBDY 2018 Deprem, Statik, Otopark ve Neufert Standartları",
         "start_url": "/",
+        "scope": "/",
         "display": "standalone",
+        "orientation": "portrait-primary",
         "background_color": "#0B0F19",
         "theme_color": "#38BDF8",
-        "orientation": "portrait"
+        "categories": ["utilities", "productivity", "business"],
+        "icons": [
+            {
+                "src": "/icon-192.svg",
+                "sizes": "192x192",
+                "type": "image/svg+xml",
+                "purpose": "any maskable"
+            },
+            {
+                "src": "/icon-512.svg",
+                "sizes": "512x512",
+                "type": "image/svg+xml",
+                "purpose": "any maskable"
+            }
+        ]
     }
 
 
@@ -859,9 +927,12 @@ INDEX_HTML = """<!DOCTYPE html>
             }
         }
 
-        // Sayfa acildiginda 81 ili yukle
+        // Sayfa acildiginda 81 ili yukle ve Service Worker'i kaydet
         document.addEventListener('DOMContentLoaded', () => {
             loadJurisdictions();
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW register err:', err));
+            }
         });
 
         function switchTab(tabId) {

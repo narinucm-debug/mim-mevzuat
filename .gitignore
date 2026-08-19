@@ -11,4 +11,6 @@ build/
 .env
 cloudflared.exe
 .claude/
+.gradle/
+local.properties
 

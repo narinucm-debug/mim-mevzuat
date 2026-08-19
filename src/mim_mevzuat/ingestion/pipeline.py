@@ -18,8 +18,14 @@ from pathlib import Path
 from typing import Optional
 
 from ..db import connect
-from .mevzuat_gov_tr import extract_text_by_page, fetch_consolidated_pdf
 from .parser import ParsedDocument, parse_legislation_text
+
+# NOT: mevzuat_gov_tr modülü (PyMuPDF/requests/certifi bağımlılığı taşır)
+# burada BİLEREK modül seviyesinde import edilmiyor - yalnızca gerçekten
+# PDF işleyen fonksiyonların (ingest_pdf_bytes/ingest_pdf_file) içinde
+# gecikmeli (lazy) import edilir. Böylece bu dosyanın geri kalanını
+# (ingest_text, DocumentMetadata) kullanan ortamlar (ör. Android/Chaquopy)
+# PyMuPDF/requests/certifi kurulu olmadan da pipeline.py'yi import edebilir.
 
 
 @dataclass
@@ -168,6 +174,8 @@ def ingest_pdf_bytes(
     pdf_bytes: bytes,
 ) -> IngestionResult:
     """PDF baytlarından metin çıkarıp parse eder ve veritabanına aktarır."""
+    from .mevzuat_gov_tr import extract_text_by_page  # lazy: bkz. dosya başı notu
+
     pages = extract_text_by_page(pdf_bytes)
     full_text = "\n".join(pages)
     parsed = parse_legislation_text(full_text)

@@ -5,6 +5,9 @@ buildscript {
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.5.0'
+        // Chaquopy: Python motorunu (mim_mevzuat) uygulama icine gomup
+        // internetsiz calistirmak icin. mavenCentral() uzerinden gelir.
+        classpath 'com.chaquo.python:gradle:17.0.0'
     }
 }
 

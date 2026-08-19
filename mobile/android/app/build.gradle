@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+apply plugin: 'com.chaquo.python'
 
 android {
     namespace 'com.mimmevzuat.app'
@@ -6,16 +7,50 @@ android {
 
     defaultConfig {
         applicationId "com.mimmevzuat.app"
-        minSdk 21
+        // Chaquopy 17.x en az API 24 (Android 7.0) gerektiriyor.
+        minSdk 24
         targetSdk 34
         versionCode 1
         versionName "1.0.0"
+
+        ndk {
+            // APK boyutunu ve derleme suresini makul tutmak icin
+            // yalnizca gercek telefonlarin buyuk cogunlugunu kapsayan
+            // iki ABI hedeflenir.
+            abiFilters "armeabi-v7a", "arm64-v8a"
+        }
+
+        // mim_mevzuat cekirdek motoru (models/citation_enforcer/retrieval/
+        // composer/rules/nlu/jurisdictions/assistant) SADECE stdlib kullanir
+        // (bkz. 2026-08-19 dogrulamasi: bos bir venv'de PyMuPDF/requests/
+        // certifi OLMADAN calisiyor) - bu yuzden pip{} blogu bos birakilabilir.
+        // web/, ingestion/mevzuat_gov_tr.py, cli.py gibi masaustu/web'e ozel
+        // alt modulleri Android tarafinda hic import ETMEYECEGIZ.
+        python {
+            // buildPython BİLEREK belirtilmiyor: Chaquopy PATH üzerinden
+            // uygun bir Python'u otomatik bulur. Bunu makine-özel mutlak
+            // bir yola (ör. geliştiricinin kendi kullanıcı dizini) sabitlemek
+            // hem taşınabilirliği bozar hem de GitHub Actions (Ubuntu)
+            // üzerinde çalışmaz. Yerelde derlerken PATH'te bir python3/
+            // python komutunun bulunduğundan emin olun.
+            pip {
+                // Bilerek bos: cekirdek motor ek bagimlilik gerektirmiyor.
+            }
+        }
     }
 
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    sourceSets {
+        main {
+            // MİM MEVZUAT Python motorunun TEK kaynagi: repo kokundeki
+            // src/ dizini. Kopyalama YOK - Windows/Web ile ayni kod.
+            python.srcDir "../../../src"
         }
     }
 }

@@ -14,22 +14,26 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Optional
 
 from .composer import AnswerComposer
 from .db import apply_schema, connect
-from .ingestion.pipeline import DocumentMetadata, ingest_pdf_file, ingest_text
+from .ingestion.pipeline import DocumentMetadata, ingest_text
 from .interpreter import ArchitecturalInterpretation, interpret_calculation
-from .models import Citation, ConfidenceLevel, Evidence, ValidatedAnswer, ValidationResult
+from .models import (
+    REJECTION_MESSAGE,
+    Citation,
+    ConfidenceLevel,
+    Evidence,
+    ValidatedAnswer,
+    ValidationResult,
+)
 from .nlu import ExtractedEntities, ParsedUserIntent, parse_user_intent
 from .providers import LLMProvider, MockGroundedProvider
 from .retrieval import QueryFilter, RetrievalEngine
 from .rules.base import CalculationTrace
 from .rules.engine import RuleEngine
-
-# Varsayılan temel yönetmelik fixture'ları
-DEFAULT_OTOPARK_PDF = Path(__file__).parent.parent.parent / "tests" / "fixtures" / "otopark_yonetmeligi_sample.pdf"
+from .seed_data.otopark_core_text import OTOPARK_CORE_TEXT
 
 PLANLI_ALANLAR_CORE_TEXT = """
 PLANLI ALANLAR İMAR YÖNETMELİĞİ
@@ -217,21 +221,24 @@ class MevzuatAssistant:
 
     def seed_core_regulations(self) -> None:
         """Türkiye'nin tüm temel mimari, statik ve imar mevzuatını yükler."""
-        # 1. Otopark Yönetmeliği
-        if DEFAULT_OTOPARK_PDF.exists():
-            meta_otopark = DocumentMetadata(
-                document_id="yonetmelik:7.5.24408",
-                title="Otopark Yönetmeliği",
-                authority="Çevre, Şehircilik ve İklim Değişikliği Bakanlığı",
-                document_type="yonetmelik",
-                jurisdiction="TR",
-                publication_date="2018-02-22",
-                effective_date="2018-06-01",
-                version="2022.06",
-                source_url="https://www.mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.24408.pdf",
-                validity_status="ACTIVE",
-            )
-            ingest_pdf_file(self.conn, meta_otopark, DEFAULT_OTOPARK_PDF)
+        # 1. Otopark Yönetmeliği - onceden cikarilmis sabit metin kullanilir
+        # (PyMuPDF'i çalışma zamanı bağımlılığı yapmamak için; bkz.
+        # seed_data/otopark_core_text.py). Bu, motorun Android/Chaquopy gibi
+        # PyMuPDF'in native derlemesinin bulunmadığı ortamlarda da
+        # çalışabilmesini sağlar.
+        meta_otopark = DocumentMetadata(
+            document_id="yonetmelik:7.5.24408",
+            title="Otopark Yönetmeliği",
+            authority="Çevre, Şehircilik ve İklim Değişikliği Bakanlığı",
+            document_type="yonetmelik",
+            jurisdiction="TR",
+            publication_date="2018-02-22",
+            effective_date="2018-06-01",
+            version="2022.06",
+            source_url="https://www.mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.24408.pdf",
+            validity_status="ACTIVE",
+        )
+        ingest_text(self.conn, meta_otopark, OTOPARK_CORE_TEXT)
 
         # 2. Planlı Alanlar İmar Yönetmeliği
         meta_planli = DocumentMetadata(
@@ -514,3 +521,51 @@ class MevzuatAssistant:
             duration_ms=duration_ms,
             created_at=now_iso,
         )
+
+    def ask_formatted(self, query: str, jurisdiction: Optional[str] = None) -> str:
+        """`ask()` sonucunu düz metin olarak biçimlendirir - ARCHITECTURE.txt
+        bölüm 7'deki KISA CEVAP/DAYANAK/GÜVEN SEVİYESİ/KAYNAK formatına
+        yakın. Basit host ortamlarından (ör. Chaquopy üzerinden Android)
+        Python nesne modeline hiç dokunmadan tek bir string almak için."""
+        trace = self.ask(query, jurisdiction=jurisdiction)
+        return format_execution_trace(trace)
+
+
+def format_execution_trace(trace: "ExecutionTrace") -> str:
+    va = trace.validated_answer
+    lines: list[str] = []
+
+    if not trace.validation_result.accepted:
+        return REJECTION_MESSAGE
+
+    lines.append("KISA CEVAP")
+    lines.append(va.body)
+    lines.append("")
+
+    if va.citations:
+        lines.append("DAYANAK")
+        for c in va.citations:
+            ref = c.article + (f" fıkra {c.paragraph}" if c.paragraph else "")
+            lines.append(f"- {c.document_id} — {ref}")
+        lines.append("")
+
+    lines.append("GÜVEN SEVİYESİ")
+    lines.append(va.confidence.value)
+    lines.append("")
+
+    if va.citations:
+        lines.append("KAYNAK")
+        seen_urls: set[str] = set()
+        for c in va.citations:
+            if c.source_url and c.source_url not in seen_urls:
+                seen_urls.add(c.source_url)
+                lines.append(f"- {c.source_url}")
+
+    lines.append("")
+    lines.append(
+        "Bu sistem proje ve mevzuat incelemesine yardımcı olmak amacıyla "
+        "hazırlanmıştır. Ruhsat/onay kararı değildir. Yürürlükteki resmi "
+        "mevzuat, plan hükümleri ve ilgili idarenin uygulaması esastır."
+    )
+
+    return "\n".join(lines)

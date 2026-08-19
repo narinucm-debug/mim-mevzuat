@@ -10,4 +10,5 @@ build/
 *.spec
 .env
 cloudflared.exe
+.claude/
 
